@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/target
+backend/src/main/resources/static
+.env
+docs
+*.zip
+.git

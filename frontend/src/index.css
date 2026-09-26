@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-roast: #2A1A12;
+  --color-roast-soft: #4A3428;
+  --color-leaf: #1F4D3A;
+  --color-leaf-soft: #E3ECE6;
+  --color-cherry: #B8322A;
+  --color-cherry-soft: #F6E3E1;
+  --color-crema: #E8B45A;
+  --color-crema-soft: #FBF0DA;
+  --color-steam: #F2F3EF;
+  --color-line: #DAD6CC;
+  --color-muted: #6E655E;
+
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+}
+
+html, body, #root { min-height: 100%; }
+body {
+  background: var(--color-steam);
+  color: var(--color-roast);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible { outline: 2px solid var(--color-leaf); outline-offset: 2px; border-radius: 6px; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+@keyframes rise { from { transform: translateY(6px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes steam { 0% { transform: translateY(0); opacity: 0 } 30% { opacity: .7 } 100% { transform: translateY(-18px); opacity: 0 } }
+@keyframes wave { from { transform: translateX(0) } to { transform: translateX(-80px) } }
+@keyframes pulse-dot { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .anim-rise { animation: rise .35s ease-out both; }
+  .anim-steam { animation: steam 2.4s ease-in-out infinite; }
+  .anim-wave { animation: wave 3.5s linear infinite; }
+  .anim-live { animation: pulse-dot 1.6s ease-in-out infinite; }
+}

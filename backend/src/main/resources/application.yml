@@ -1,0 +1,26 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  compression:
+    enabled: true
+
+spring:
+  application:
+    name: google-coffee
+  mvc:
+    async:
+      request-timeout: -1   # SSE streams stay open; clients auto-reconnect
+
+app:
+  gcp-project-id: ${GCP_PROJECT_ID:}
+  firestore-database: ${FIRESTORE_DATABASE:(default)}
+  gemini-model: ${GEMINI_MODEL:gemini-2.5-flash}
+  gemini-location: ${GEMINI_LOCATION:us-central1}
+  gemini-timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:25}
+  staff-pin: ${STAFF_PIN:2468}
+  token-secret: ${STAFF_TOKEN_SECRET:local-dev-secret-change-me}
+  default-baristas: ${DEFAULT_BARISTAS:2}
+
+logging:
+  level:
+    com.googlecoffee: INFO

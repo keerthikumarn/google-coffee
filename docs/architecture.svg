@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="Figtree, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1L9 5L1 9" fill="none" stroke="#2A1A12" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="#F2F3EF"/>
+
+  <text x="80" y="104" font-size="54" font-weight="800" fill="#2A1A12" letter-spacing="-1">Google Coffee</text>
+  <text x="80" y="148" font-size="24" fill="#6E655E">An AI café companion on three Google Cloud services</text>
+
+  <!-- People -->
+  <g>
+    <rect x="80" y="250" width="330" height="150" rx="24" fill="#FFFFFF" stroke="#DAD6CC" stroke-width="2"/>
+    <text x="112" y="300" font-size="26" font-weight="700" fill="#2A1A12">Guests</text>
+    <text x="112" y="336" font-size="19" fill="#6E655E">Scan the table QR, chat with</text>
+    <text x="112" y="362" font-size="19" fill="#6E655E">Brew, order, watch the cup fill</text>
+
+    <rect x="80" y="500" width="330" height="150" rx="24" fill="#FFFFFF" stroke="#DAD6CC" stroke-width="2"/>
+    <text x="112" y="550" font-size="26" font-weight="700" fill="#2A1A12">Café team</text>
+    <text x="112" y="586" font-size="19" fill="#6E655E">Live order board, barista</text>
+    <text x="112" y="612" font-size="19" fill="#6E655E">count, room pulse</text>
+  </g>
+
+  <!-- Cloud Run -->
+  <rect x="520" y="200" width="560" height="500" rx="32" fill="#2A1A12"/>
+  <text x="560" y="254" font-size="28" font-weight="800" fill="#F2F3EF">Cloud Run</text>
+  <text x="560" y="286" font-size="18" fill="#E8B45A">One container: Spring Boot API + React UI</text>
+
+  <g font-size="20">
+    <rect x="560" y="320" width="480" height="76" rx="16" fill="#3A281E"/>
+    <text x="588" y="354" font-weight="700" fill="#F2F3EF">AI barista</text>
+    <text x="588" y="380" font-size="17" fill="#CFC6BE">Answers checked against the real menu and diet rules</text>
+
+    <rect x="560" y="410" width="480" height="76" rx="16" fill="#3A281E"/>
+    <text x="588" y="444" font-weight="700" fill="#F2F3EF">Wait-time engine</text>
+    <text x="588" y="470" font-size="17" fill="#CFC6BE">Queue prep minutes shared across baristas on shift</text>
+
+    <rect x="560" y="500" width="480" height="76" rx="16" fill="#3A281E"/>
+    <text x="588" y="534" font-weight="700" fill="#F2F3EF">Live order hub</text>
+    <text x="588" y="560" font-size="17" fill="#CFC6BE">Firestore listener fanned out to browsers over SSE</text>
+
+    <rect x="560" y="590" width="480" height="76" rx="16" fill="#3A281E"/>
+    <text x="588" y="624" font-weight="700" fill="#F2F3EF">Room pulse</text>
+    <text x="588" y="650" font-size="17" fill="#CFC6BE">Last hour of feedback summarised into actions</text>
+  </g>
+
+  <!-- Google services -->
+  <rect x="1190" y="250" width="330" height="170" rx="24" fill="#1F4D3A"/>
+  <text x="1222" y="304" font-size="28" font-weight="800" fill="#F2F3EF">Gemini</text>
+  <text x="1222" y="336" font-size="19" fill="#E8B45A">on Vertex AI</text>
+  <text x="1222" y="374" font-size="18" fill="#DCE7E0">Chat, picks for you,</text>
+  <text x="1222" y="398" font-size="18" fill="#DCE7E0">sentiment and themes</text>
+
+  <rect x="1190" y="480" width="330" height="170" rx="24" fill="#E8B45A"/>
+  <text x="1222" y="534" font-size="28" font-weight="800" fill="#2A1A12">Firestore</text>
+  <text x="1222" y="566" font-size="19" fill="#4A3428">Native mode</text>
+  <text x="1222" y="604" font-size="18" fill="#2A1A12">Menu, sessions, orders,</text>
+  <text x="1222" y="628" font-size="18" fill="#2A1A12">feedback, live listeners</text>
+
+  <!-- Arrows -->
+  <g stroke="#2A1A12" stroke-width="2.4" fill="none">
+    <path d="M412 325 H514" marker-end="url(#a)" marker-start="url(#a)"/>
+    <path d="M412 575 H514" marker-end="url(#a)" marker-start="url(#a)"/>
+    <path d="M1082 335 H1184" marker-end="url(#a)"/>
+    <path d="M1082 565 H1184" marker-end="url(#a)" marker-start="url(#a)"/>
+  </g>
+  <g font-size="15" fill="#6E655E" text-anchor="middle">
+    <text x="463" y="312">REST + live</text>
+    <text x="463" y="562">REST + live</text>
+    <text x="1133" y="322">JSON prompts</text>
+    <text x="1133" y="552">read, write,</text>
+    <text x="1133" y="590">listen</text>
+  </g>
+
+  <!-- Guardrails strip -->
+  <rect x="80" y="760" width="1440" height="72" rx="20" fill="#FFFFFF" stroke="#DAD6CC" stroke-width="2"/>
+  <text x="112" y="804" font-size="19" fill="#2A1A12"><tspan font-weight="700">Built-in guardrails:</tspan> AI can only suggest real menu items, dietary rules are enforced on the server, Google credentials never reach the browser.</text>
+</svg>

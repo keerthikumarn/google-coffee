@@ -1,0 +1,67 @@
+# CI/CD for Google Coffee: test -> build image -> push -> deploy to Cloud Run -> smoke test.
+# Triggered by a push to main (see setup-cicd.sh and README "CI/CD").
+substitutions:
+  _REGION: asia-south1
+  _SERVICE: google-coffee
+  _REPO: google-coffee
+  _FIRESTORE_DATABASE: google-coffee
+  _GEMINI_MODEL: gemini-2.5-flash
+  _GEMINI_LOCATION: us-central1
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  # 1. Unit tests (no cloud access needed). A failing test stops the pipeline.
+  - id: unit-tests
+    name: maven:3.9-eclipse-temurin-21
+    dir: backend
+    entrypoint: mvn
+    args: ["-B", "-q", "test"]
+
+  # 2. Build the production image (React build + jar build happen inside the Dockerfile).
+  - id: build-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$BUILD_ID
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
+      - .
+
+  # 3. Push both tags to Artifact Registry.
+  - id: push-image
+    name: gcr.io/cloud-builders/docker
+    args: ["push", "--all-tags", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}"]
+
+  # 4. Deploy the exact image we just tested. Secrets come from Secret Manager.
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$BUILD_ID
+      - --region=${_REGION}
+      - --service-account=google-coffee-run@$PROJECT_ID.iam.gserviceaccount.com
+      - --timeout=3600
+      - --memory=1Gi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=5
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE=${_FIRESTORE_DATABASE},GEMINI_MODEL=${_GEMINI_MODEL},GEMINI_LOCATION=${_GEMINI_LOCATION}
+      - --set-secrets=STAFF_PIN=staff-pin:latest,STAFF_TOKEN_SECRET=staff-token-secret:latest
+
+  # 5. Smoke test: the new revision must answer on /api/health.
+  - id: smoke-test
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        URL=$$(gcloud run services describe ${_SERVICE} --region ${_REGION} --format='value(status.url)')
+        echo "Checking $$URL/api/health"
+        curl -fsS --retry 5 --retry-delay 5 "$$URL/api/health"
