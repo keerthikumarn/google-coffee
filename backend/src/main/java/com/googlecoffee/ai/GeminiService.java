@@ -6,9 +6,11 @@ import com.google.genai.Client;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
 import com.googlecoffee.config.AppProperties;
+import com.googlecoffee.port.AiClient;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -23,7 +25,8 @@ import java.util.concurrent.TimeUnit;
  * back gracefully instead of breaking the guest experience.
  */
 @Service
-public class GeminiService {
+@Profile("gcp")
+public class GeminiService implements AiClient {
 
     private static final Logger log = LoggerFactory.getLogger(GeminiService.class);
 
@@ -38,6 +41,7 @@ public class GeminiService {
         this.props = props;
     }
 
+    @Override
     public Optional<JsonNode> generateJson(String prompt, float temperature) {
         GenerateContentConfig config = GenerateContentConfig.builder()
                 .responseMimeType("application/json")
@@ -67,13 +71,12 @@ public class GeminiService {
     }
 
     static String stripFences(String text) {
-        String t = text.trim();
-        if (t.startsWith("```")) {
-            int firstNewline = t.indexOf('\n');
-            t = firstNewline >= 0 ? t.substring(firstNewline + 1) : t.substring(3);
-            if (t.endsWith("```")) t = t.substring(0, t.length() - 3);
-        }
-        return t.trim();
+        return JsonText.stripFences(text);
+    }
+
+    @Override
+    public String displayName() {
+        return "Gemini (" + props.geminiModel() + ")";
     }
 
     @PreDestroy

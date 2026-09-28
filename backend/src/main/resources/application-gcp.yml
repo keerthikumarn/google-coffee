@@ -1,0 +1,7 @@
+# Profile "gcp": Firestore + Gemini on Vertex AI, deployed on Cloud Run.
+# No relational database is used, so switch off JDBC and Flyway auto-configuration.
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration

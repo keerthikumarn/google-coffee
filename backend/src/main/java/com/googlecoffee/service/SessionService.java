@@ -1,8 +1,7 @@
 package com.googlecoffee.service;
 
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
 import com.googlecoffee.model.Session;
+import com.googlecoffee.port.SessionStore;
 import com.googlecoffee.web.ApiException;
 import org.springframework.stereotype.Service;
 
@@ -13,32 +12,29 @@ import java.util.UUID;
 @Service
 public class SessionService {
 
-    static final String COLLECTION = "sessions";
-    private final Firestore db;
+    private final SessionStore store;
 
-    public SessionService(Firestore db) {
-        this.db = db;
+    public SessionService(SessionStore store) {
+        this.store = store;
     }
 
     public Session create(String name, String table, List<String> preferences) {
         Session s = new Session(UUID.randomUUID().toString(), name.trim(), table.trim(),
                 PreferenceRules.sanitize(preferences), System.currentTimeMillis());
-        Fs.await(db.collection(COLLECTION).document(s.id()).set(s.toMap()));
+        store.save(s);
         return s;
     }
 
     public Session get(String id) {
         if (id == null || id.isBlank()) throw ApiException.badRequest("sessionId is required");
-        DocumentSnapshot snap = Fs.await(db.collection(COLLECTION).document(id).get());
-        if (!snap.exists() || snap.getData() == null) throw ApiException.notFound("Session");
-        return Session.fromMap(snap.getData());
+        return store.find(id).orElseThrow(() -> ApiException.notFound("Session"));
     }
 
     public Session updatePreferences(String id, List<String> preferences) {
         Session current = get(id);
         Session updated = new Session(current.id(), current.name(), current.table(),
                 PreferenceRules.sanitize(preferences), current.createdAt());
-        Fs.await(db.collection(COLLECTION).document(id).set(updated.toMap()));
+        store.save(updated);
         return updated;
     }
 }

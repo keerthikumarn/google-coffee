@@ -1,6 +1,7 @@
 package com.googlecoffee.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.googlecoffee.port.AiClient;
 import com.googlecoffee.model.MenuItem;
 import com.googlecoffee.model.Order;
 import com.googlecoffee.model.OrderItem;
@@ -18,7 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * "Brew", the AI barista. Gemini does the conversation; the server does the
+ * "Brew", the AI barista. The model (Gemini or a local Ollama model) does the conversation; the server does the
  * grounding: every suggested id must exist on the menu and must respect the
  * guest's dietary preferences, otherwise it is dropped.
  */
@@ -34,11 +35,11 @@ public class BaristaService {
     private static final ZoneId CAFE_ZONE = ZoneId.of("Asia/Kolkata");
     private static final int MAX_SUGGESTIONS = 3;
 
-    private final GeminiService gemini;
+    private final AiClient ai;
     private final MenuService menu;
 
-    public BaristaService(GeminiService gemini, MenuService menu) {
-        this.gemini = gemini;
+    public BaristaService(AiClient ai, MenuService menu) {
+        this.ai = ai;
         this.menu = menu;
     }
 
@@ -76,7 +77,7 @@ public class BaristaService {
                 """.formatted(guest.name(), guest.table(), prefsText(guest), timeOfDay(),
                 menu.promptBlock(), convo);
 
-        Optional<JsonNode> json = gemini.generateJson(prompt, 0.6f);
+        Optional<JsonNode> json = ai.generateJson(prompt, 0.6f);
         if (json.isEmpty() || !json.get().hasNonNull("reply")) {
             return new ChatReply(
                     "Brew is taking a quick breather. Here are a few guest favourites that match your preferences.",
@@ -106,7 +107,7 @@ public class BaristaService {
                 """.formatted(guest.name(), prefsText(guest), timeOfDay(),
                 previous.isEmpty() ? "nothing yet" : String.join(", ", previous), menu.promptBlock());
 
-        Optional<JsonNode> json = gemini.generateJson(prompt, 0.8f);
+        Optional<JsonNode> json = ai.generateJson(prompt, 0.8f);
         if (json.isEmpty()) {
             return new Picks("Guest favourites for you", fallbackPicks(guest.preferences()), false);
         }

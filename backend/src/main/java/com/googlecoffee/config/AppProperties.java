@@ -11,5 +11,9 @@ public record AppProperties(
         int geminiTimeoutSeconds,
         String staffPin,
         String tokenSecret,
-        int defaultBaristas) {
+        int defaultBaristas,
+        Ollama ollama) {
+
+    /** Settings for the "local" profile. Null when running with the "gcp" profile. */
+    public record Ollama(String baseUrl, String model, int timeoutSeconds) {}
 }

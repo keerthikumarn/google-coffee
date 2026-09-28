@@ -8,13 +8,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * Wires the Google Cloud clients. Credentials come from Application Default
  * Credentials: `gcloud auth application-default login` locally, the service
- * account on Cloud Run.
+ * account on Cloud Run. Active only with the "gcp" profile.
  */
 @Configuration
+@Profile("gcp")
 public class GcpConfig {
 
     private static final Logger log = LoggerFactory.getLogger(GcpConfig.class);

@@ -20,14 +20,19 @@ export default function Dashboard({ token, onSignOut }) {
   useEffect(() => {
     let es
     let closed = false
+    let sseDelivered = false
+    const refresh = () => api.staffBoard(token).then((b) => { setBoard(b); setError('') }).catch((err) => {
+      if (err.status === 401) onSignOut()
+    })
     function connect() {
       es = new EventSource(`/api/staff/stream?token=${encodeURIComponent(token)}`)
-      es.addEventListener('board', (e) => { setBoard(JSON.parse(e.data)); setLive(true); setError('') })
+      es.addEventListener('board', (e) => { sseDelivered = true; setBoard(JSON.parse(e.data)); setLive(true); setError('') })
       es.onerror = () => {
+        sseDelivered = false
         setLive(false)
         if (es.readyState === EventSource.CLOSED && !closed) {
           // A closed stream usually means the token expired; verify with a cheap authenticated call.
-          api.pulse(token).then(() => setTimeout(connect, 3000)).catch((err) => {
+          api.staffBoard(token).then(() => setTimeout(connect, 3000)).catch((err) => {
             if (err.status === 401) onSignOut()
             else setTimeout(connect, 3000)
           })
@@ -35,8 +40,10 @@ export default function Dashboard({ token, onSignOut }) {
       }
     }
     connect()
+    // Fallback for networks that buffer SSE (e.g. Cloudflare quick tunnels): poll until SSE delivers.
+    const poll = setInterval(() => { if (!sseDelivered) refresh() }, 3000)
     const tick = setInterval(() => setNow(Date.now()), 30000)
-    return () => { closed = true; es?.close(); clearInterval(tick) }
+    return () => { closed = true; es?.close(); clearInterval(poll); clearInterval(tick) }
   }, [token, onSignOut])
 
   async function advance(order, next) {
@@ -71,7 +78,7 @@ export default function Dashboard({ token, onSignOut }) {
           <p className="font-display text-2xl font-extrabold tracking-tight">Google Coffee</p>
           <span className="flex items-center gap-1.5 rounded-full bg-steam/10 px-3 py-1 text-xs">
             <span className={`inline-block h-2 w-2 rounded-full ${live ? 'anim-live bg-crema' : 'bg-steam/40'}`} />
-            {live ? 'Live' : 'Connecting'}
+            {live ? 'Live' : 'Auto-refresh'}
           </span>
         </div>
         <div className="flex items-center gap-3">

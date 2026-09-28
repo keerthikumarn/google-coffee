@@ -39,7 +39,10 @@ export default function CustomerApp() {
   useEffect(() => {
     if (!session) return
     api.session(session.id).catch((e) => {
-      if (e.status === 404) { store.remove('gc.session'); store.remove('gc.orderId'); setSession(null) }
+      if (e.status === 404) {
+        store.remove('gc.session'); store.remove('gc.orderId')
+        setSession(null); setOrderId(null); setTab('menu')
+      }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -90,8 +93,15 @@ export default function CustomerApp() {
 
   function startSession(s) {
     store.set('gc.session', s)
+    store.remove('gc.orderId') // an order from an earlier session never carries over
+    setOrderId(null)
     setSession(s)
   }
+
+  const forgetOrder = useCallback(() => {
+    store.remove('gc.orderId')
+    setOrderId(null)
+  }, [])
 
   function signOut() {
     store.remove('gc.session'); store.remove('gc.orderId')
@@ -122,7 +132,7 @@ export default function CustomerApp() {
         {!menuError && menu.length === 0 && <div className="flex justify-center py-20 text-muted"><Spinner /></div>}
         {menu.length > 0 && tab === 'menu' && <MenuTab session={session} menu={menu} onAdd={addToCart} cartQty={cartQty} />}
         {tab === 'brew' && <BrewChat session={session} messages={messages} setMessages={setMessages} onAdd={addToCart} raised={cartCount > 0} />}
-        {tab === 'order' && <OrderTracker session={session} orderId={orderId} onOrderAgain={() => setTab('menu')} />}
+        {tab === 'order' && <OrderTracker session={session} orderId={orderId} onOrderAgain={() => setTab('menu')} onMissing={forgetOrder} />}
       </main>
 
       {toast && (

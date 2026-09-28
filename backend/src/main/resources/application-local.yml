@@ -1,0 +1,17 @@
+# Profile "local": PostgreSQL + Ollama running on your machine.
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/googlecoffee}
+    username: ${DATABASE_USER:googlecoffee}
+    password: ${DATABASE_PASSWORD:googlecoffee}
+    hikari:
+      maximum-pool-size: 10
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${OLLAMA_MODEL:llama3.2}
+    timeout-seconds: ${OLLAMA_TIMEOUT_SECONDS:90}

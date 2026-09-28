@@ -51,7 +51,7 @@ steps:
       - --cpu=1
       - --min-instances=0
       - --max-instances=5
-      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE=${_FIRESTORE_DATABASE},GEMINI_MODEL=${_GEMINI_MODEL},GEMINI_LOCATION=${_GEMINI_LOCATION}
+      - --set-env-vars=SPRING_PROFILES_ACTIVE=gcp,GCP_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE=${_FIRESTORE_DATABASE},GEMINI_MODEL=${_GEMINI_MODEL},GEMINI_LOCATION=${_GEMINI_LOCATION}
       - --set-secrets=STAFF_PIN=staff-pin:latest,STAFF_TOKEN_SECRET=staff-token-secret:latest
 
   # 5. Smoke test: the new revision must answer on /api/health.

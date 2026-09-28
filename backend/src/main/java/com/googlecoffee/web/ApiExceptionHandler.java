@@ -1,6 +1,7 @@
 package com.googlecoffee.web;
 
 import org.slf4j.Logger;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,8 +13,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
-
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
@@ -22,8 +21,16 @@ public class ApiExceptionHandler {
     public record ErrorBody(String error, String message) {}
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ErrorBody> api(ApiException e) {
+    public ResponseEntity<ErrorBody> api(ApiException e, HttpServletRequest request) {
+        // An EventSource only accepts text/event-stream, so a JSON error body can't be written.
+        // Send the status alone; the browser sees the stream fail and the UI checks via REST.
+        if (acceptsOnlyEventStream(request)) return ResponseEntity.status(e.status()).build();
         return ResponseEntity.status(e.status()).body(new ErrorBody(e.status().name(), e.getMessage()));
+    }
+
+    private static boolean acceptsOnlyEventStream(HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        return accept != null && accept.contains("text/event-stream") && !accept.contains("json");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -2,6 +2,7 @@ package com.googlecoffee.web;
 
 import com.googlecoffee.ai.PulseService;
 import com.googlecoffee.live.LiveOrderHub;
+import com.googlecoffee.live.StaffBoard;
 import com.googlecoffee.model.Order;
 import com.googlecoffee.model.OrderStatus;
 import com.googlecoffee.security.StaffAuth;
@@ -71,6 +72,13 @@ public class StaffController {
     public SseEmitter stream(@RequestParam String token) {
         requireStaff(token);
         return hub.subscribeStaff();
+    }
+
+    /** Polling fallback for networks that buffer SSE (e.g. Cloudflare quick tunnels). */
+    @GetMapping("/board")
+    public StaffBoard board(@RequestHeader(value = "X-Staff-Token", required = false) String token) {
+        requireStaff(token);
+        return hub.board();
     }
 
     @PatchMapping("/orders/{id}")

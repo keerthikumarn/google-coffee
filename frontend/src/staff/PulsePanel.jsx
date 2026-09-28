@@ -48,7 +48,7 @@ export default function PulsePanel({ token, onUnauthorized }) {
           {loading ? <Spinner /> : <RefreshCw size={16} />}
         </button>
       </div>
-      <p className="mt-1 text-sm text-steam/60">Gemini reads the last hour of guest feedback.</p>
+      <p className="mt-1 text-sm text-steam/60">{pulse?.aiProvider || 'AI'} reads the last hour of guest feedback.</p>
 
       {error && <div className="mt-4"><ErrorNote message={error} /></div>}
       {!pulse && !error && <div className="flex justify-center py-10"><Spinner /></div>}

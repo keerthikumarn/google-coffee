@@ -1,20 +1,72 @@
 # Google Coffee — Café Companion
 
-An AI-powered café experience built on **three Google Cloud services**:
+An AI-powered café experience: guests order from their table with help from an AI barista and watch their order being made live, while the café team gets a live order board and an AI summary of how the room feels.
 
-| Service | What it does here |
+This branch (`google-coffee-local`) runs **entirely on your own machine at zero cloud cost**:
+
+| Component | What it does here |
 |---|---|
-| **Gemini on Vertex AI** | "Brew", the conversational AI barista; personalised "picked for you" recommendations; the staff **Room pulse** (sentiment, themes, suggested actions from live feedback) |
-| **Firestore** | Menu, guest sessions, orders, feedback, café settings; **real-time listeners** power the live order board and the guest's order tracker |
-| **Cloud Run** | Hosts the single container (Spring Boot API + React UI), scales to zero |
+| **Ollama** (`llama3.2`) | "Brew", the conversational AI barista; personalised "picked for you" recommendations; the staff **Room pulse** (sentiment, themes, suggested actions from live feedback) |
+| **PostgreSQL** | Menu, guest sessions, orders, feedback, café settings; every order change is pushed live to the order board and the guest's tracker |
+| **Spring Boot + React** | One process serving the API and UI; shared publicly through a Cloudflare Tunnel |
 
-![Architecture](docs/architecture.png)
+![Local architecture](docs/architecture-local.png)
+
+The original Google Cloud version (Gemini on Vertex AI, Firestore, Cloud Run) is still in the code and one setting away. See [Google Cloud stack](#google-cloud-stack-profile-gcp) below.
+
+## Two stacks, one codebase (branch `google-coffee-local`)
+
+The app talks to its infrastructure only through small interfaces in `backend/.../port`. A Spring profile picks the implementation:
+
+| Concern | `local` profile (default on this branch) | `gcp` profile |
+|---|---|---|
+| AI model | Ollama (`llama3.2` by default) | Gemini on Vertex AI |
+| Database | PostgreSQL + Flyway migrations | Firestore |
+| Live order feed | In-process events after each DB write | Firestore snapshot listener |
+| Hosting | Your laptop (+ optional Cloudflare Tunnel) | Cloud Run |
+
+Switch with `SPRING_PROFILES_ACTIVE=local` or `SPRING_PROFILES_ACTIVE=gcp` in `.env`. Everything else (UI, API, grounding rules, wait-time engine, room pulse, staff auth) is shared.
+
+### Run the local stack
+
+Prerequisites: Java 21, Maven 3.9+, Node 20.19+/22, Docker Desktop, Ollama with the model pulled (`ollama pull llama3.2`).
+
+```bash
+cp .env.example .env        # set STAFF_PIN and STAFF_TOKEN_SECRET; keep SPRING_PROFILES_ACTIVE=local
+./run-local.sh              # starts Postgres in Docker, checks Ollama, builds the UI, starts the app
+```
+
+- Guests: http://localhost:8080/?table=7
+- Staff: http://localhost:8080/staff
+
+Everything in containers instead (Ollama stays native): `docker compose --profile app up -d --build`
+
+### Share it publicly with Cloudflare Tunnel
+
+```bash
+brew install cloudflared
+cloudflared tunnel --url http://localhost:8080
+```
+
+It prints a random `https://….trycloudflare.com` URL. Quick tunnels buffer Server-Sent Events, so the UI automatically falls back to refreshing every 3 seconds (the status shows "Auto-refresh"). For true live updates and a stable URL, create a named tunnel on a free Cloudflare account with your own domain.
+
+### Local troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Log: "Ollama not reachable" | Open the Ollama app or run `ollama serve` |
+| Log: "model 'llama3.2' is not pulled" | `ollama pull llama3.2`, or set `OLLAMA_MODEL` to a model from `ollama list` |
+| Brew replies "taking a quick breather" | The model timed out or returned invalid JSON; check `Ollama call failed…` in the log, raise `OLLAMA_TIMEOUT_SECONDS` |
+| Port 5432 already in use | Set `POSTGRES_PORT=5433` and `DATABASE_URL=jdbc:postgresql://localhost:5433/googlecoffee` in `.env` |
+| Reset all local data | `docker compose down -v` |
+
+
 
 ## Features
 
 **Guests** (mobile web, opened from a table QR code such as `/?table=7`)
 - Enter a name, table and dietary preferences (vegan, dairy-free, less sugar, no caffeine, prefer hot/cold). No login.
-- **Picked for you**: three Gemini recommendations based on time of day, preferences and what they already ordered.
+- **Picked for you**: three AI recommendations based on time of day, preferences and what they already ordered.
 - **Ask Brew**: chat with the AI barista. Every suggestion becomes a card that can be added to the order with one tap.
 - **Better waits**: the cart shows "ready in about N min" *before* ordering; after ordering a coffee cup fills up live as the bar works on it, with pickup code, ETA and queue position.
 - **Feedback** in two taps (face rating plus optional comment).
@@ -22,15 +74,15 @@ An AI-powered café experience built on **three Google Cloud services**:
 **Café team** (`/staff`, PIN protected)
 - Live order board: New → Brewing → Ready → Collected (or cancel), late orders highlighted.
 - Set how many baristas are on the bar; every guest's ETA updates instantly.
-- **Room pulse**: Gemini summarises the last hour of feedback into mood, themes and 2–3 concrete actions.
+- **Room pulse**: the AI model summarises the last hour of feedback into mood, themes and 2–3 concrete actions.
 
 ## How the AI is kept honest (grounding)
 
-- Gemini receives the real menu and must answer in JSON with item **ids**.
+- The model (Ollama or Gemini) receives the real menu and must answer in JSON with item **ids**.
 - The server drops any id not on the menu and any item that breaks the guest's dietary preferences (`PreferenceRules`). The model can never invent a dish or a price, and can never override "vegan".
 - Prices and prep times always come from the server, never the browser.
 - Guest text is treated as data inside the prompt; history and message sizes are capped.
-- If Gemini is slow or unavailable (timeout 25 s), the app falls back to rule-based picks and ratings-only pulse. The guest flow never breaks.
+- If the model is slow or unavailable (timeout: 90 s for Ollama, 25 s for Gemini), the app falls back to rule-based picks and ratings-only pulse. The guest flow never breaks.
 
 ## How wait times are estimated
 
@@ -41,6 +93,14 @@ No historical data exists yet, so the model is transparent rather than "ML":
 See `EtaCalculator` and its unit tests.
 
 ---
+
+---
+
+# Google Cloud stack (profile `gcp`)
+
+Everything below applies when `SPRING_PROFILES_ACTIVE=gcp`.
+
+![Google Cloud architecture](docs/architecture.png)
 
 ## 1. Prerequisites
 
@@ -76,7 +136,7 @@ Then confirm your model is available: Vertex AI → Model Garden → Gemini. The
 
 ```bash
 cp .env.example .env
-# edit .env: set GCP_PROJECT_ID, STAFF_PIN and a long STAFF_TOKEN_SECRET (openssl rand -hex 32)
+# edit .env: set SPRING_PROFILES_ACTIVE=gcp, GCP_PROJECT_ID, STAFF_PIN and a long STAFF_TOKEN_SECRET (openssl rand -hex 32)
 ```
 
 ## 4. Run locally
@@ -152,13 +212,15 @@ The script enables APIs, creates a least-privilege service account (`roles/datas
 
 ```
 backend/    Spring Boot 3.5, Java 21
-  ai/        GeminiService, BaristaService (grounded chat and picks), PulseService
+  port/      Interfaces: AiClient, MenuStore, SessionStore, OrderStore, FeedbackStore, SettingsStore, OrderFeed
+  adapter/   local/ (Ollama, PostgreSQL) and gcp/ (Firestore) implementations, picked by Spring profile
+  ai/        GeminiService (gcp), BaristaService (grounded chat and picks), PulseService
   live/      LiveOrderHub: Firestore snapshot listener → SSE
   service/   Menu, sessions, orders, feedback, settings, EtaCalculator, PreferenceRules
   security/  StaffAuth: PIN + HMAC-signed expiring token, login lockout
   web/       REST controllers, validation and error handling
 frontend/   React 19 + Vite + Tailwind CSS 4
-docs/       architecture.svg / .png for the pitch
+docs/       architecture-local.* (local stack) and architecture.* (Google Cloud stack)
 Dockerfile  multi-stage: UI build → jar build → slim JRE
 ```
 
@@ -166,6 +228,7 @@ Dockerfile  multi-stage: UI build → jar build → slim JRE
 
 | Symptom | Fix |
 |---|---|
+| Firestore database "default" not found | In `.env` the value must be quoted: `FIRESTORE_DATABASE="(default)"` |
 | Log says "Could not reach Firestore … Serving the bundled sample menu" | Run `gcloud auth application-default login`, check `GCP_PROJECT_ID`, and make sure the Firestore database exists |
 | Brew replies "taking a quick breather" | Gemini call failed. Check the log line `Gemini call failed…`: usually the model isn't available in `GEMINI_LOCATION`, the Vertex AI API isn't enabled, or ADC has no quota project |
 | `PERMISSION_DENIED` on Cloud Run | Re-run `deploy.sh` (it grants the two roles) and wait a minute for IAM to propagate |
@@ -178,3 +241,15 @@ Dockerfile  multi-stage: UI build → jar build → slim JRE
 - Staff auth is a single shared PIN. For a real rollout, move secrets to Secret Manager and use per-staff accounts.
 - Wait times are a transparent heuristic; with a few weeks of order data they could be replaced by a learned model.
 - The menu shown is sample data for a third-wave style café, not any real café's menu.
+
+## CI/CD (Cloud Build → Artifact Registry → Cloud Run)
+
+Every push to `main` runs `cloudbuild.yaml`: unit tests → build image → push to Artifact Registry → deploy that exact image to Cloud Run → smoke test `/api/health`. Staff PIN and token secret live in Secret Manager.
+
+1. Run `./setup-cicd.sh` once (after a first `./deploy.sh`).
+2. Push the project to GitHub (`.env` is git-ignored).
+3. Console → Cloud Build → Repositories → 2nd gen → Create host connection (GitHub, region `asia-south1`) → Link repository.
+4. Console → Cloud Build → Triggers → Create (region `asia-south1`): event "Push to a branch", branch `^main$`, config `cloudbuild.yaml`, service account `google-coffee-build@PROJECT.iam.gserviceaccount.com`.
+5. Push a commit and watch Cloud Build → History.
+
+After CI/CD is set up, deploy through the pipeline rather than `deploy.sh` (which sets the PIN as a plain env var).

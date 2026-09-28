@@ -1,19 +1,11 @@
 package com.googlecoffee.live;
 
-import com.google.cloud.firestore.DocumentChange;
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.FirestoreException;
-import com.google.cloud.firestore.ListenerRegistration;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
-import com.google.cloud.firestore.QuerySnapshot;
 import com.googlecoffee.model.Order;
 import com.googlecoffee.model.OrderStatus;
+import com.googlecoffee.port.OrderFeed;
 import com.googlecoffee.service.EtaCalculator;
 import com.googlecoffee.service.SettingsService;
 import jakarta.annotation.PreDestroy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,70 +20,37 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
- * Single source of real-time truth: one Firestore snapshot listener on active
- * orders, fanned out to browsers over Server-Sent Events. Every Cloud Run
- * instance runs its own listener, so it scales horizontally with no extra infra.
+ * Real-time fan-out: the configured OrderFeed (Firestore listener or local
+ * database events) tells us when active orders change, and we push the new
+ * state to browsers over Server-Sent Events.
  */
 @Component
 public class LiveOrderHub {
 
-    private static final Logger log = LoggerFactory.getLogger(LiveOrderHub.class);
-    private static final String COLLECTION = "orders";
-
-    private final Firestore db;
+    private final OrderFeed feed;
     private final SettingsService settings;
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     private volatile Map<String, Order> active = Map.of();
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> customers = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<SseEmitter> staff = new CopyOnWriteArrayList<>();
-    private ListenerRegistration registration;
 
-    public LiveOrderHub(Firestore db, SettingsService settings) {
-        this.db = db;
+    public LiveOrderHub(OrderFeed feed, SettingsService settings) {
+        this.feed = feed;
         this.settings = settings;
         settings.onChange(n -> broadcastAll());
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
-        List<String> statuses = OrderStatus.ACTIVE.stream().map(Enum::name).toList();
-        registration = db.collection(COLLECTION)
-                .whereIn("status", new ArrayList<Object>(statuses))
-                .addSnapshotListener(this::onSnapshot);
-        log.info("Listening for live order changes");
+        feed.start(this::onActive, order -> sendToCustomers(viewOf(order)));
     }
 
-    private void onSnapshot(QuerySnapshot snap, FirestoreException err) {
-        if (err != null) {
-            log.error("Order listener error: {}", err.getMessage());
-            return;
-        }
-        if (snap == null) return;
+    private void onActive(List<Order> orders) {
         Map<String, Order> fresh = new HashMap<>();
-        for (QueryDocumentSnapshot d : snap.getDocuments()) {
-            fresh.put(d.getId(), Order.fromMap(d.getData()));
-        }
+        orders.forEach(o -> fresh.put(o.id(), o));
         active = fresh;
-
-        for (DocumentChange change : snap.getDocumentChanges()) {
-            String id = change.getDocument().getId();
-            if (change.getType() == DocumentChange.Type.REMOVED) {
-                // Order left the active set (collected / cancelled): fetch its final state for the guest.
-                executor.submit(() -> {
-                    try {
-                        DocumentSnapshot s = db.collection(COLLECTION).document(id).get().get();
-                        if (s.exists() && s.getData() != null) sendToCustomers(viewOf(Order.fromMap(s.getData())));
-                    } catch (Exception e) {
-                        log.warn("Could not load final state of order {}: {}", id, e.getMessage());
-                    }
-                });
-            }
-        }
         broadcastAll();
     }
 
@@ -192,7 +151,6 @@ public class LiveOrderHub {
 
     @PreDestroy
     void stop() {
-        if (registration != null) registration.remove();
-        executor.shutdown();
+        feed.stop();
     }
 }

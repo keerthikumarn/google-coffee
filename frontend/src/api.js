@@ -35,6 +35,7 @@ export const api = {
   feedback: (sessionId, orderId, rating, comment) => request('/api/feedback', { method: 'POST', body: { sessionId, orderId, rating, comment } }),
 
   staffLogin: (pin) => request('/api/staff/login', { method: 'POST', body: { pin } }),
+  staffBoard: (token) => request('/api/staff/board', { token }),
   setStatus: (token, id, status) => request(`/api/staff/orders/${id}`, { method: 'PATCH', token, body: { status } }),
   setBaristas: (token, activeBaristas) => request('/api/staff/settings', { method: 'PUT', token, body: { activeBaristas } }),
   pulse: (token, refresh = false) => request(`/api/staff/pulse?refresh=${refresh}`, { token }),

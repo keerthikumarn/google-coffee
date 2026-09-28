@@ -1,6 +1,7 @@
 package com.googlecoffee.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.googlecoffee.port.AiClient;
 import com.googlecoffee.model.Feedback;
 import com.googlecoffee.service.FeedbackService;
 import org.springframework.stereotype.Service;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * "Room pulse": Gemini reads the last hour of guest feedback and tells the
+ * "Room pulse": the AI model reads the last hour of guest feedback and tells the
  * team what the room feels like and what to do about it. Cached briefly so a
  * busy dashboard doesn't turn into a busy bill.
  */
@@ -21,18 +22,18 @@ public class PulseService {
 
     public record Pulse(int feedbackCount, double averageRating, int sentimentScore, String mood,
                         String summary, List<Theme> themes, List<String> actions,
-                        List<Feedback> latest, boolean aiAvailable, long generatedAt) {}
+                        List<Feedback> latest, boolean aiAvailable, String aiProvider, long generatedAt) {}
 
     private static final long WINDOW_MS = 60 * 60 * 1000L;
     private static final long CACHE_MS = 2 * 60 * 1000L;
 
     private final FeedbackService feedback;
-    private final GeminiService gemini;
+    private final AiClient ai;
     private volatile Pulse cached;
 
-    public PulseService(FeedbackService feedback, GeminiService gemini) {
+    public PulseService(FeedbackService feedback, AiClient ai) {
         this.feedback = feedback;
-        this.gemini = gemini;
+        this.ai = ai;
     }
 
     public synchronized Pulse current(boolean forceRefresh) {
@@ -46,7 +47,7 @@ public class PulseService {
         if (items.isEmpty()) {
             cached = new Pulse(0, 0, 0, "No feedback yet", "No guest feedback in the last hour.",
                     List.of(), List.of("Invite guests to rate their order from the tracker screen."),
-                    List.of(), false, now);
+                    List.of(), false, ai.displayName(), now);
             return cached;
         }
 
@@ -73,11 +74,11 @@ public class PulseService {
                  "actions": ["max 14 words each"]}
                 """.formatted(lines);
 
-        Optional<JsonNode> json = gemini.generateJson(prompt, 0.2f);
+        Optional<JsonNode> json = ai.generateJson(prompt, 0.2f);
         if (json.isEmpty()) {
             cached = new Pulse(items.size(), round1(avg), ratingScore, moodFor(ratingScore),
                     "AI summary unavailable right now. Showing the rating average.",
-                    List.of(), List.of(), latest, false, now);
+                    List.of(), List.of(), latest, false, ai.displayName(), now);
             return cached;
         }
         JsonNode j = json.get();
@@ -95,7 +96,7 @@ public class PulseService {
         }
         int score = Math.max(0, Math.min(100, j.path("sentimentScore").asInt(ratingScore)));
         cached = new Pulse(items.size(), round1(avg), score, j.path("mood").asText(moodFor(score)),
-                j.path("summary").asText(""), themes, actions, latest, true, now);
+                j.path("summary").asText(""), themes, actions, latest, true, ai.displayName(), now);
         return cached;
     }
 

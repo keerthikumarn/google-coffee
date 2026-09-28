@@ -1,0 +1,48 @@
+# Local stack for the "local" profile.
+#   docker compose up -d postgres              -> just the database (use with ./run-local.sh)
+#   docker compose --profile app up -d --build -> database + app in containers
+# Ollama is NOT in here: it runs natively on your machine (faster on Apple Silicon).
+name: google-coffee
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: googlecoffee
+      POSTGRES_USER: ${DATABASE_USER:-googlecoffee}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-googlecoffee}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-googlecoffee} -d googlecoffee"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    profiles: ["app"]
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DATABASE_URL: jdbc:postgresql://postgres:5432/googlecoffee
+      DATABASE_USER: ${DATABASE_USER:-googlecoffee}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-googlecoffee}
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-90}
+      STAFF_PIN: ${STAFF_PIN:?Set STAFF_PIN in .env}
+      STAFF_TOKEN_SECRET: ${STAFF_TOKEN_SECRET:?Set STAFF_TOKEN_SECRET in .env}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:

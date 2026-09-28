@@ -1,9 +1,5 @@
 package com.googlecoffee.service;
 
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.googlecoffee.live.LiveOrderHub;
 import com.googlecoffee.live.OrderView;
 import com.googlecoffee.model.MenuItem;
@@ -11,32 +7,29 @@ import com.googlecoffee.model.Order;
 import com.googlecoffee.model.OrderItem;
 import com.googlecoffee.model.OrderStatus;
 import com.googlecoffee.model.Session;
+import com.googlecoffee.port.OrderStore;
 import com.googlecoffee.web.ApiException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class OrderService {
 
-    static final String COLLECTION = "orders";
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final Firestore db;
+    private final OrderStore store;
     private final MenuService menu;
     private final SessionService sessions;
     private final LiveOrderHub hub;
     private final SettingsService settings;
 
-    public OrderService(Firestore db, MenuService menu, SessionService sessions,
+    public OrderService(OrderStore store, MenuService menu, SessionService sessions,
                         LiveOrderHub hub, SettingsService settings) {
-        this.db = db;
+        this.store = store;
         this.menu = menu;
         this.sessions = sessions;
         this.hub = hub;
@@ -76,14 +69,12 @@ public class OrderService {
         String code = String.valueOf(100 + RANDOM.nextInt(900));
         Order order = new Order(UUID.randomUUID().toString(), code, s.id(), s.name(), s.table(),
                 items, total, prep, OrderStatus.PLACED, now, now);
-        Fs.await(db.collection(COLLECTION).document(order.id()).set(order.toMap()));
+        store.insert(order);
         return hub.viewOf(order);
     }
 
     public Order get(String orderId) {
-        DocumentSnapshot snap = Fs.await(db.collection(COLLECTION).document(orderId).get());
-        if (!snap.exists() || snap.getData() == null) throw ApiException.notFound("Order");
-        return Order.fromMap(snap.getData());
+        return store.find(orderId).orElseThrow(() -> ApiException.notFound("Order"));
     }
 
     public Order getForSession(String orderId, String sessionId) {
@@ -93,32 +84,11 @@ public class OrderService {
     }
 
     public List<Order> historyFor(String sessionId) {
-        List<Order> out = new ArrayList<>();
-        for (QueryDocumentSnapshot d : Fs.await(db.collection(COLLECTION)
-                .whereEqualTo("sessionId", sessionId).limit(10).get()).getDocuments()) {
-            out.add(Order.fromMap(d.getData()));
-        }
-        return out;
+        return store.findBySession(sessionId, 10);
     }
 
-    /** Status changes run in a transaction so two staff tablets can't make an illegal jump. */
+    /** The store makes the transition atomic, so two staff tablets can't make an illegal jump. */
     public Order updateStatus(String orderId, OrderStatus next) {
-        DocumentReference ref = db.collection(COLLECTION).document(orderId);
-        return Fs.await(db.runTransaction(tx -> {
-            DocumentSnapshot snap = tx.get(ref).get();
-            if (!snap.exists() || snap.getData() == null) throw ApiException.notFound("Order");
-            Order current = Order.fromMap(snap.getData());
-            if (!current.status().canTransitionTo(next)) {
-                throw new ApiException(HttpStatus.CONFLICT,
-                        "Order is " + current.status() + " and can't move to " + next);
-            }
-            Map<String, Object> patch = new HashMap<>();
-            patch.put("status", next.name());
-            patch.put("updatedAt", System.currentTimeMillis());
-            tx.update(ref, patch);
-            return new Order(current.id(), current.code(), current.sessionId(), current.customerName(),
-                    current.table(), current.items(), current.total(), current.prepMinutes(),
-                    next, current.createdAt(), System.currentTimeMillis());
-        }));
+        return store.updateStatus(orderId, next);
     }
 }

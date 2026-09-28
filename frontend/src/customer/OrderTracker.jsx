@@ -19,7 +19,7 @@ const HEADLINE = {
   CANCELLED: 'This order was cancelled',
 }
 
-export default function OrderTracker({ session, orderId, onOrderAgain }) {
+export default function OrderTracker({ session, orderId, onOrderAgain, onMissing }) {
   const [view, setView] = useState(null)
   const [error, setError] = useState('')
   const [live, setLive] = useState(false)
@@ -28,18 +28,26 @@ export default function OrderTracker({ session, orderId, onOrderAgain }) {
     if (!orderId) return
     let es
     let closed = false
-    api.order(orderId, session.id).then(setView).catch((e) => setError(e.message))
+    let sseDelivered = false
+    const refresh = () => api.order(orderId, session.id).then(setView).catch((e) => {
+      // Order no longer exists (e.g. a different database): forget it instead of retrying forever.
+      if (e.status === 404) { closed = true; es?.close(); onMissing?.() } else setError(e.message)
+    })
+    refresh()
     function connect() {
       es = new EventSource(`/api/orders/${orderId}/stream?sessionId=${encodeURIComponent(session.id)}`)
-      es.addEventListener('order', (e) => { setView(JSON.parse(e.data)); setLive(true) })
+      es.addEventListener('order', (e) => { sseDelivered = true; setView(JSON.parse(e.data)); setLive(true) })
       es.onerror = () => {
+        sseDelivered = false
         setLive(false)
         if (es.readyState === EventSource.CLOSED && !closed) setTimeout(connect, 3000)
       }
     }
     connect()
-    return () => { closed = true; es?.close() }
-  }, [orderId, session.id])
+    // Fallback for networks that buffer SSE (e.g. Cloudflare quick tunnels): poll until SSE delivers.
+    const poll = setInterval(() => { if (!sseDelivered) refresh() }, 3000)
+    return () => { closed = true; es?.close(); clearInterval(poll) }
+  }, [orderId, session.id, onMissing])
 
   if (!orderId) {
     return (
@@ -86,7 +94,7 @@ export default function OrderTracker({ session, orderId, onOrderAgain }) {
         )}
         <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted">
           <span className={`inline-block h-2 w-2 rounded-full ${live ? 'anim-live bg-leaf' : 'bg-line'}`} />
-          {live ? 'Live updates on' : 'Reconnecting'}
+          {live ? 'Live updates on' : 'Auto-refreshing every few seconds'}
         </p>
       </section>
 
