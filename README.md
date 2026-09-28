@@ -10,7 +10,7 @@ This branch (`google-coffee-local`) runs **entirely on your own machine at zero 
 | **PostgreSQL** | Menu, guest sessions, orders, feedback, café settings; every order change is pushed live to the order board and the guest's tracker |
 | **Spring Boot + React** | One process serving the API and UI; shared publicly through a Cloudflare Tunnel |
 
-![Local architecture](architecture-local.png)
+![Local architecture](docs/architecture-local.png)
 
 The original Google Cloud version (Gemini on Vertex AI, Firestore, Cloud Run) is still in the code and one setting away. See [Google Cloud stack](#google-cloud-stack-profile-gcp) below.
 
