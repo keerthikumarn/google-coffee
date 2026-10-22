@@ -1,4 +1,4 @@
-# CI/CD for Google Coffee: test -> build image -> push -> deploy to Cloud Run -> smoke test.
+# CI/CD for Google Coffee: backend + frontend tests -> build image -> push -> deploy to Cloud Run -> smoke test.
 # Triggered by a push to main (see setup-cicd.sh and README "CI/CD").
 substitutions:
   _REGION: asia-south1
@@ -12,12 +12,49 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
-  # 1. Unit tests (no cloud access needed). A failing test stops the pipeline.
-  - id: unit-tests
-    name: maven:3.9-eclipse-temurin-21
-    dir: backend
-    entrypoint: mvn
-    args: ["-B", "-q", "test"]
+  # 1. Backend tests. The Postgres adapter tests start a real database with Testcontainers, so
+  #    maven runs inside the Docker builder with the host network and the Docker socket.
+  #    A failing test stops the pipeline.
+  - id: backend-tests
+    name: gcr.io/cloud-builders/docker
+    args:
+      - run
+      - --rm
+      - --network=host
+      - -v
+      - /var/run/docker.sock:/var/run/docker.sock
+      - -v
+      - /workspace:/workspace
+      - -w
+      - /workspace/backend
+      - -e
+      - TESTCONTAINERS_RYUK_DISABLED=true
+      - maven:3.9-eclipse-temurin-21
+      - mvn
+      - -B
+      - test
+
+  # 1b. A skipped backend test must not look like a pass (the Postgres tests skip without Docker).
+  - id: no-skipped-tests
+    name: ubuntu
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        if grep -lE 'skipped="[1-9]' backend/target/surefire-reports/TEST-*.xml; then
+          echo "Some backend tests were skipped (see files above). Is Docker available to the build?"
+          exit 1
+        fi
+        echo "No skipped backend tests."
+
+  # 1c. Frontend tests. The production build happens inside the Dockerfile.
+  - id: frontend-tests
+    name: node:22-slim
+    dir: frontend
+    entrypoint: bash
+    args:
+      - -c
+      - npm ci --no-audit --no-fund && npm test
 
   # 2. Build the production image (React build + jar build happen inside the Dockerfile).
   - id: build-image
