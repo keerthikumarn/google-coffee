@@ -251,6 +251,6 @@ Every push to `main` runs `cloudbuild.yaml`: backend tests (including Postgres t
 3. Console → Cloud Build → Repositories → 2nd gen → Create host connection (GitHub, region `asia-south1`) → Link repository.
 4. Console → Cloud Build → Triggers → Create (region `asia-south1`): event "Push to a branch", branch `^main$`, config `cloudbuild.yaml`, service account `google-coffee-build@PROJECT.iam.gserviceaccount.com`.
 5. Push a commit and watch Cloud Build → History.
-6. Pull request checks: create a second trigger (same region and service account), event "Pull request", base branch `^main$`, config `cloudbuild-pr.yaml`. It runs the same backend and frontend tests, fails if any backend test was skipped, builds the UI, and never deploys. Set the trigger's comment control as you prefer for outside contributors.
+6. Pull request checks: create a second trigger (same region and service account), event "Pull request", base branch `^main$`, config `cloudbuild-pr.yaml`. It runs the same backend and frontend tests, builds the UI, and never deploys. Set the trigger's comment control as you prefer for outside contributors.
 
 After CI/CD is set up, deploy through the pipeline rather than `deploy.sh` (which sets the PIN as a plain env var).

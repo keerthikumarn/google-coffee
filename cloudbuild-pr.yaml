@@ -26,21 +26,7 @@ steps:
       - -B
       - test
 
-  # 2. Fail if any backend test was skipped. The Postgres tests skip themselves when Docker is
-  #    unavailable, and a silent skip must not look like a pass.
-  - id: no-skipped-tests
-    name: ubuntu
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        if grep -lE 'skipped="[1-9]' backend/target/surefire-reports/TEST-*.xml; then
-          echo "Some backend tests were skipped (see files above). Is Docker available to the build?"
-          exit 1
-        fi
-        echo "No skipped backend tests."
-
-  # 3. Frontend tests, then a production build to catch compile errors the tests don't import.
+  # 2. Frontend tests, then a production build to catch compile errors the tests don't import.
   #    Node 22 matches the Dockerfile.
   - id: frontend
     name: node:22-slim

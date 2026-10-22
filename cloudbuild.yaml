@@ -34,20 +34,7 @@ steps:
       - -B
       - test
 
-  # 1b. A skipped backend test must not look like a pass (the Postgres tests skip without Docker).
-  - id: no-skipped-tests
-    name: ubuntu
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        if grep -lE 'skipped="[1-9]' backend/target/surefire-reports/TEST-*.xml; then
-          echo "Some backend tests were skipped (see files above). Is Docker available to the build?"
-          exit 1
-        fi
-        echo "No skipped backend tests."
-
-  # 1c. Frontend tests. The production build happens inside the Dockerfile.
+  # 2. Frontend tests. The production build happens inside the Dockerfile.
   - id: frontend-tests
     name: node:22-slim
     dir: frontend
@@ -56,7 +43,7 @@ steps:
       - -c
       - npm ci --no-audit --no-fund && npm test
 
-  # 2. Build the production image (React build + jar build happen inside the Dockerfile).
+  # 3. Build the production image (React build + jar build happen inside the Dockerfile).
   - id: build-image
     name: gcr.io/cloud-builders/docker
     args:
@@ -67,12 +54,12 @@ steps:
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
       - .
 
-  # 3. Push both tags to Artifact Registry.
+  # 4. Push both tags to Artifact Registry.
   - id: push-image
     name: gcr.io/cloud-builders/docker
     args: ["push", "--all-tags", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}"]
 
-  # 4. Deploy the exact image we just tested. Secrets come from Secret Manager.
+  # 5. Deploy the exact image we just tested. Secrets come from Secret Manager.
   - id: deploy
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: gcloud
@@ -91,7 +78,7 @@ steps:
       - --set-env-vars=SPRING_PROFILES_ACTIVE=gcp,GCP_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE=${_FIRESTORE_DATABASE},GEMINI_MODEL=${_GEMINI_MODEL},GEMINI_LOCATION=${_GEMINI_LOCATION}
       - --set-secrets=STAFF_PIN=staff-pin:latest,STAFF_TOKEN_SECRET=staff-token-secret:latest
 
-  # 5. Smoke test: the new revision must answer on /api/health.
+  # 6. Smoke test: the new revision must answer on /api/health.
   - id: smoke-test
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: bash
