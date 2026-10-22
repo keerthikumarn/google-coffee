@@ -10,5 +10,5 @@
 
 - [ ] One logical change (no mixed formatting / refactor / feature)
 - [ ] Tests for the new or fixed behavior are included
-- [ ] `mvn -B test` and `npm test` pass locally
+- [ ] `./mvnw -B test` and `npm test` pass locally
 - [ ] Commit messages follow Conventional Commits (see CONTRIBUTING.md)

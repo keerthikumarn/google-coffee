@@ -44,7 +44,7 @@ refactor(service): extract ETA queue-depth lookup
 
 ```bash
 # backend
-cd backend && mvn -B test
+cd backend && ./mvnw -B test
 
 # frontend
 cd frontend && npm test

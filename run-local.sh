@@ -34,4 +34,4 @@ mkdir -p backend/src/main/resources/static
 cp -R frontend/dist/. backend/src/main/resources/static/
 
 echo "▶ Starting Google Coffee on http://localhost:8080  (staff: http://localhost:8080/staff)"
-cd backend && mvn -q spring-boot:run
+cd backend && ./mvnw -q spring-boot:run

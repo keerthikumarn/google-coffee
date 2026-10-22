@@ -29,7 +29,7 @@ Switch with `SPRING_PROFILES_ACTIVE=local` or `SPRING_PROFILES_ACTIVE=gcp` in `.
 
 ### Run the local stack
 
-Prerequisites: Java 21, Maven 3.9+, Node 20.19+/22, Docker Desktop, Ollama with the model pulled (`ollama pull llama3.2`).
+Prerequisites: Java 21, Node 20.19+/22, Docker Desktop, Ollama with the model pulled (`ollama pull llama3.2`).
 
 ```bash
 cp .env.example .env        # set STAFF_PIN and STAFF_TOKEN_SECRET; keep SPRING_PROFILES_ACTIVE=local
@@ -107,7 +107,6 @@ Everything below applies when `SPRING_PROFILES_ACTIVE=gcp`.
 | Tool | Version |
 |---|---|
 | Java (JDK) | 21 |
-| Maven | 3.9+ |
 | Node.js | 20.19+ or 22 LTS (Vite 8 requirement) |
 | gcloud CLI | recent |
 
@@ -157,7 +156,7 @@ On first start the app seeds the sample menu into Firestore (collection `menu_it
 ```bash
 # Terminal 1: API on :8080
 set -a; source .env; set +a
-cd backend && mvn spring-boot:run
+cd backend && ./mvnw spring-boot:run
 
 # Terminal 2: UI on :5173 (proxies /api to :8080)
 cd frontend && npm install && npm run dev
