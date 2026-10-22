@@ -244,12 +244,13 @@ Dockerfile  multi-stage: UI build → jar build → slim JRE
 
 ## CI/CD (Cloud Build → Artifact Registry → Cloud Run)
 
-Every push to `main` runs `cloudbuild.yaml`: unit tests → build image → push to Artifact Registry → deploy that exact image to Cloud Run → smoke test `/api/health`. Staff PIN and token secret live in Secret Manager.
+Every push to `main` runs `cloudbuild.yaml`: backend tests (including Postgres tests via Testcontainers) and frontend tests → build image → push to Artifact Registry → deploy that exact image to Cloud Run → smoke test `/api/health`. Staff PIN and token secret live in Secret Manager.
 
 1. Run `./setup-cicd.sh` once (after a first `./deploy.sh`).
 2. Push the project to GitHub (`.env` is git-ignored).
 3. Console → Cloud Build → Repositories → 2nd gen → Create host connection (GitHub, region `asia-south1`) → Link repository.
 4. Console → Cloud Build → Triggers → Create (region `asia-south1`): event "Push to a branch", branch `^main$`, config `cloudbuild.yaml`, service account `google-coffee-build@PROJECT.iam.gserviceaccount.com`.
 5. Push a commit and watch Cloud Build → History.
+6. Pull request checks: create a second trigger (same region and service account), event "Pull request", base branch `^main$`, config `cloudbuild-pr.yaml`. It runs the same backend and frontend tests, fails if any backend test was skipped, builds the UI, and never deploys. Set the trigger's comment control as you prefer for outside contributors.
 
 After CI/CD is set up, deploy through the pipeline rather than `deploy.sh` (which sets the PIN as a plain env var).

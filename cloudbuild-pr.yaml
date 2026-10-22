@@ -1,0 +1,51 @@
+# Pull request checks for Google Coffee: tests only, nothing is built into an image or deployed.
+# Triggered by pull requests targeting main (see README "CI/CD").
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # 1. Backend tests. The Postgres adapter tests start a real database with Testcontainers, so
+  #    maven runs inside the Docker builder with the host network and the Docker socket. On the
+  #    default step network Testcontainers could not reach the containers it starts.
+  - id: backend-tests
+    name: gcr.io/cloud-builders/docker
+    args:
+      - run
+      - --rm
+      - --network=host
+      - -v
+      - /var/run/docker.sock:/var/run/docker.sock
+      - -v
+      - /workspace:/workspace
+      - -w
+      - /workspace/backend
+      - -e
+      - TESTCONTAINERS_RYUK_DISABLED=true
+      - maven:3.9-eclipse-temurin-21
+      - mvn
+      - -B
+      - test
+
+  # 2. Fail if any backend test was skipped. The Postgres tests skip themselves when Docker is
+  #    unavailable, and a silent skip must not look like a pass.
+  - id: no-skipped-tests
+    name: ubuntu
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        if grep -lE 'skipped="[1-9]' backend/target/surefire-reports/TEST-*.xml; then
+          echo "Some backend tests were skipped (see files above). Is Docker available to the build?"
+          exit 1
+        fi
+        echo "No skipped backend tests."
+
+  # 3. Frontend tests, then a production build to catch compile errors the tests don't import.
+  #    Node 22 matches the Dockerfile.
+  - id: frontend
+    name: node:22-slim
+    dir: frontend
+    entrypoint: bash
+    args:
+      - -c
+      - npm ci --no-audit --no-fund && npm test && npm run build
