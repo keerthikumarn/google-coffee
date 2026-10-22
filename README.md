@@ -14,6 +14,43 @@ This branch (`google-coffee-local`) runs **entirely on your own machine at zero 
 
 The original Google Cloud version (Gemini on Vertex AI, Firestore, Cloud Run) is still in the code and one setting away. See [Google Cloud stack](#google-cloud-stack-profile-gcp) below.
 
+## Build and test from a fresh clone
+
+Everything here works on a machine that has never seen the project. You do **not** need a `.env` file, Ollama, a local PostgreSQL or a Google Cloud account to build and test: the database tests start their own throwaway PostgreSQL container.
+
+| Tool | Version | Used for |
+|---|---|---|
+| Git | any | cloning |
+| JDK | 21 | backend (`java -version`) |
+| Node.js | 20.19+ or 22 LTS | frontend (`node -v`) |
+| Docker | running (Docker Desktop, Colima or the Linux daemon) | the PostgreSQL adapter tests |
+
+Maven is not a prerequisite: the repo ships `backend/mvnw`, which downloads the pinned Maven (3.9.11) on first use and needs only `curl` or `wget`.
+
+```bash
+git clone -b google-coffee-local https://github.com/keerthikumarn/google-coffee.git
+cd google-coffee
+
+# Backend: run the tests, then build the jar (backend/target/google-coffee.jar)
+cd backend
+./mvnw test
+./mvnw -DskipTests package
+
+# Frontend: install exactly what package-lock.json says, run the tests, build the UI
+cd ../frontend
+npm ci
+npm test
+npm run build
+```
+
+A passing run ends with `BUILD SUCCESS` for the backend and `Tests … passed` for the frontend. The first backend run downloads Maven, the dependencies and the `postgres:17-alpine` image, so allow a few minutes; later runs are much quicker.
+
+**What the tests cover.** Backend: services run against in-memory fakes of the ports (orders, menu, sessions, settings, wait-time maths, dietary rules, staff auth) and the PostgreSQL adapters run against a real PostgreSQL with the production migrations (including concurrent status changes). Frontend: the API client plus the guest welcome form, menu, cart and the staff login.
+
+**No Docker?** The PostgreSQL tests then **fail** with a message saying so; they are never skipped, so a green build always means they ran. To run only the Docker-free tests: `./mvnw test -Dtest='!Pg*Test'`.
+
+**Reproducible installs.** `frontend/package-lock.json` is committed, so use `npm ci` (not `npm install`). Backend dependency versions are pinned by the Spring Boot parent and the explicit versions in `backend/pom.xml`.
+
 ## Two stacks, one codebase (branch `google-coffee-local`)
 
 The app talks to its infrastructure only through small interfaces in `backend/.../port`. A Spring profile picks the implementation:
@@ -57,6 +94,7 @@ It prints a random `https://….trycloudflare.com` URL. Quick tunnels buffer Ser
 | Log: "Ollama not reachable" | Open the Ollama app or run `ollama serve` |
 | Log: "model 'llama3.2' is not pulled" | `ollama pull llama3.2`, or set `OLLAMA_MODEL` to a model from `ollama list` |
 | Brew replies "taking a quick breather" | The model timed out or returned invalid JSON; check `Ollama call failed…` in the log, raise `OLLAMA_TIMEOUT_SECONDS` |
+| Tests fail with "Docker is required for the PostgreSQL adapter tests" | Start Docker, or run the Docker-free subset: `./mvnw test -Dtest='!Pg*Test'` |
 | Port 5432 already in use | Set `POSTGRES_PORT=5433` and `DATABASE_URL=jdbc:postgresql://localhost:5433/googlecoffee` in `.env` |
 | Reset all local data | `docker compose down -v` |
 
@@ -172,11 +210,7 @@ Open http://localhost:5173/?table=7 and http://localhost:5173/staff.
 
 ### Tests
 
-```bash
-cd backend && mvn test
-```
-
-Unit tests cover the wait-time maths, dietary grounding rules, order status transitions, staff token signing and lockout, and JSON cleanup of model output. They need no cloud access.
+See [Build and test from a fresh clone](#build-and-test-from-a-fresh-clone).
 
 ## 5. Deploy to Cloud Run
 
