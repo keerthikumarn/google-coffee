@@ -50,7 +50,7 @@ cd backend && ./mvnw -B test
 cd frontend && npm test
 ```
 
-Both suites must pass before you push. The CI pipeline runs them on every pull request.
+Both suites must pass before you push. GitHub Actions runs them (plus the production image build) on every push and pull request. The backend tests need Docker for the PostgreSQL adapter tests; see the README for details.
 
 ## Pull requests
 

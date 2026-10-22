@@ -1,5 +1,7 @@
 # Google Coffee — Café Companion
 
+[![CI](https://github.com/keerthikumarn/google-coffee/actions/workflows/ci.yml/badge.svg)](https://github.com/keerthikumarn/google-coffee/actions/workflows/ci.yml)
+
 An AI-powered café experience: guests order from their table with help from an AI barista and watch their order being made live, while the café team gets a live order board and an AI summary of how the room feels.
 
 This branch (`google-coffee-local`) runs **entirely on your own machine at zero cloud cost**:
@@ -48,6 +50,8 @@ A passing run ends with `BUILD SUCCESS` for the backend and `Tests … passed` f
 **What the tests cover.** Backend: services run against in-memory fakes of the ports (orders, menu, sessions, settings, wait-time maths, dietary rules, staff auth) and the PostgreSQL adapters run against a real PostgreSQL with the production migrations (including concurrent status changes). Frontend: the API client plus the guest welcome form, menu, cart and the staff login.
 
 **No Docker?** The PostgreSQL tests then **fail** with a message saying so; they are never skipped, so a green build always means they ran. To run only the Docker-free tests: `./mvnw test -Dtest='!Pg*Test'`.
+
+**CI.** [GitHub Actions](.github/workflows/ci.yml) runs these same commands on every push and pull request: backend tests and package, frontend tests and build on Node 20 and 22, and a build of the production Docker image. Nothing is deployed.
 
 **Reproducible installs.** `frontend/package-lock.json` is committed, so use `npm ci` (not `npm install`). Backend dependency versions are pinned by the Spring Boot parent and the explicit versions in `backend/pom.xml`.
 
@@ -275,7 +279,9 @@ Dockerfile  multi-stage: UI build → jar build → slim JRE
 - Wait times are a transparent heuristic; with a few weeks of order data they could be replaced by a learned model.
 - The menu shown is sample data for a third-wave style café, not any real café's menu.
 
-## CI/CD (Cloud Build → Artifact Registry → Cloud Run)
+## Optional: Google Cloud deploy pipeline (Cloud Build → Artifact Registry → Cloud Run)
+
+Only needed to deploy the `gcp` stack to Cloud Run; building and testing never need it (see [Build and test from a fresh clone](#build-and-test-from-a-fresh-clone)). The triggers below watch the branches you choose, and nothing here runs unless you create them.
 
 Every push to `main` runs `cloudbuild.yaml`: backend tests (including Postgres tests via Testcontainers) and frontend tests → build image → push to Artifact Registry → deploy that exact image to Cloud Run → smoke test `/api/health`. Staff PIN and token secret live in Secret Manager.
 
