@@ -11,7 +11,8 @@ export default function CartSheet({ cart, setQty, setNote, onClose, onPlace, pla
   useEffect(() => {
     if (!cart.length) return
     const t = setTimeout(() => {
-      api.estimate(cart.map((l) => ({ itemId: l.item.id, qty: l.qty })))
+      api
+        .estimate(cart.map((l) => ({ itemId: l.item.id, qty: l.qty })))
         .then((r) => setEta(r.minutes))
         .catch(() => setEta(null))
     }, 300)
@@ -21,11 +22,22 @@ export default function CartSheet({ cart, setQty, setNote, onClose, onPlace, pla
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-roast/40" onClick={onClose}>
-      <section role="dialog" aria-modal="true" aria-label="Your order" onClick={(e) => e.stopPropagation()}
-        className="anim-rise max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-[28px] bg-steam p-5 pb-8">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Your order"
+        onClick={(e) => e.stopPropagation()}
+        className="anim-rise max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-[28px] bg-steam p-5 pb-8"
+      >
         <div className="flex items-center justify-between">
           <h2 className="font-display text-2xl font-bold">Your order</h2>
-          <button onClick={onClose} aria-label="Close" className="grid h-10 w-10 place-items-center rounded-full bg-white"><X size={18} /></button>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="grid h-10 w-10 place-items-center rounded-full bg-white"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {cart.length === 0 ? (
@@ -41,16 +53,34 @@ export default function CartSheet({ cart, setQty, setNote, onClose, onPlace, pla
                       <p className="text-sm text-muted">{rupees(l.item.price)} each</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setQty(l.item.id, l.qty - 1)} aria-label={`Remove one ${l.item.name}`}
-                        className="grid h-9 w-9 place-items-center rounded-full border border-line"><Minus size={15} /></button>
-                      <span className="w-5 text-center font-semibold" aria-live="polite">{l.qty}</span>
-                      <button onClick={() => setQty(l.item.id, l.qty + 1)} disabled={l.qty >= 10} aria-label={`Add one ${l.item.name}`}
-                        className="grid h-9 w-9 place-items-center rounded-full border border-line disabled:opacity-40"><Plus size={15} /></button>
+                      <button
+                        onClick={() => setQty(l.item.id, l.qty - 1)}
+                        aria-label={`Remove one ${l.item.name}`}
+                        className="grid h-9 w-9 place-items-center rounded-full border border-line"
+                      >
+                        <Minus size={15} />
+                      </button>
+                      <span className="w-5 text-center font-semibold" aria-live="polite">
+                        {l.qty}
+                      </span>
+                      <button
+                        onClick={() => setQty(l.item.id, l.qty + 1)}
+                        disabled={l.qty >= 10}
+                        aria-label={`Add one ${l.item.name}`}
+                        className="grid h-9 w-9 place-items-center rounded-full border border-line disabled:opacity-40"
+                      >
+                        <Plus size={15} />
+                      </button>
                     </div>
                   </div>
-                  <input value={l.note} onChange={(e) => setNote(l.item.id, e.target.value)} maxLength={80}
-                    placeholder="Note for the barista (e.g. extra hot)" aria-label={`Note for ${l.item.name}`}
-                    className="mt-3 w-full rounded-lg bg-steam px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-leaf" />
+                  <input
+                    value={l.note}
+                    onChange={(e) => setNote(l.item.id, e.target.value)}
+                    maxLength={80}
+                    placeholder="Note for the barista (e.g. extra hot)"
+                    aria-label={`Note for ${l.item.name}`}
+                    className="mt-3 w-full rounded-lg bg-steam px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-leaf"
+                  />
                 </li>
               ))}
             </ul>
@@ -58,7 +88,13 @@ export default function CartSheet({ cart, setQty, setNote, onClose, onPlace, pla
             <div className="mt-5 flex items-center gap-3 rounded-2xl bg-crema-soft p-4">
               <Clock size={20} className="text-roast" aria-hidden="true" />
               <p className="text-sm">
-                {eta ? <>Ready in about <strong>{eta} min</strong> if you order now, based on the current queue.</> : 'Checking the queue…'}
+                {eta ? (
+                  <>
+                    Ready in about <strong>{eta} min</strong> if you order now, based on the current queue.
+                  </>
+                ) : (
+                  'Checking the queue…'
+                )}
               </p>
             </div>
 
@@ -67,10 +103,15 @@ export default function CartSheet({ cart, setQty, setNote, onClose, onPlace, pla
               <span className="font-display text-2xl font-bold">{rupees(total)}</span>
             </div>
 
-            <div className="mt-4"><ErrorNote message={error} /></div>
+            <div className="mt-4">
+              <ErrorNote message={error} />
+            </div>
 
-            <button onClick={onPlace} disabled={placing}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-roast py-4 font-semibold text-steam hover:bg-roast-soft disabled:opacity-60">
+            <button
+              onClick={onPlace}
+              disabled={placing}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-roast py-4 font-semibold text-steam hover:bg-roast-soft disabled:opacity-60"
+            >
               {placing && <Spinner />} Place order
             </button>
           </>

@@ -21,29 +21,51 @@ export default function Dashboard({ token, onSignOut }) {
     let es
     let closed = false
     let sseDelivered = false
-    const refresh = () => api.staffBoard(token).then((b) => { setBoard(b); setError('') }).catch((err) => {
-      if (err.status === 401) onSignOut()
-    })
+    const refresh = () =>
+      api
+        .staffBoard(token)
+        .then((b) => {
+          setBoard(b)
+          setError('')
+        })
+        .catch((err) => {
+          if (err.status === 401) onSignOut()
+        })
     function connect() {
       es = new EventSource(`/api/staff/stream?token=${encodeURIComponent(token)}`)
-      es.addEventListener('board', (e) => { sseDelivered = true; setBoard(JSON.parse(e.data)); setLive(true); setError('') })
+      es.addEventListener('board', (e) => {
+        sseDelivered = true
+        setBoard(JSON.parse(e.data))
+        setLive(true)
+        setError('')
+      })
       es.onerror = () => {
         sseDelivered = false
         setLive(false)
         if (es.readyState === EventSource.CLOSED && !closed) {
           // A closed stream usually means the token expired; verify with a cheap authenticated call.
-          api.staffBoard(token).then(() => setTimeout(connect, 3000)).catch((err) => {
-            if (err.status === 401) onSignOut()
-            else setTimeout(connect, 3000)
-          })
+          api
+            .staffBoard(token)
+            .then(() => setTimeout(connect, 3000))
+            .catch((err) => {
+              if (err.status === 401) onSignOut()
+              else setTimeout(connect, 3000)
+            })
         }
       }
     }
     connect()
     // Fallback for networks that buffer SSE (e.g. Cloudflare quick tunnels): poll until SSE delivers.
-    const poll = setInterval(() => { if (!sseDelivered) refresh() }, 3000)
+    const poll = setInterval(() => {
+      if (!sseDelivered) refresh()
+    }, 3000)
     const tick = setInterval(() => setNow(Date.now()), 30000)
-    return () => { closed = true; es?.close(); clearInterval(poll); clearInterval(tick) }
+    return () => {
+      closed = true
+      es?.close()
+      clearInterval(poll)
+      clearInterval(tick)
+    }
   }, [token, onSignOut])
 
   async function advance(order, next) {
@@ -85,17 +107,38 @@ export default function Dashboard({ token, onSignOut }) {
           <div className="flex items-center gap-2 rounded-full bg-steam/10 py-1 pl-3 pr-1">
             <Users size={16} aria-hidden="true" />
             <span className="text-sm">Baristas on bar</span>
-            <button onClick={() => changeBaristas(-1)} aria-label="Fewer baristas" className="grid h-7 w-7 place-items-center rounded-full bg-steam/15 hover:bg-steam/25"><Minus size={14} /></button>
-            <span className="w-4 text-center font-semibold" aria-live="polite">{board?.activeBaristas ?? '–'}</span>
-            <button onClick={() => changeBaristas(1)} aria-label="More baristas" className="grid h-7 w-7 place-items-center rounded-full bg-steam/15 hover:bg-steam/25"><Plus size={14} /></button>
+            <button
+              onClick={() => changeBaristas(-1)}
+              aria-label="Fewer baristas"
+              className="grid h-7 w-7 place-items-center rounded-full bg-steam/15 hover:bg-steam/25"
+            >
+              <Minus size={14} />
+            </button>
+            <span className="w-4 text-center font-semibold" aria-live="polite">
+              {board?.activeBaristas ?? '–'}
+            </span>
+            <button
+              onClick={() => changeBaristas(1)}
+              aria-label="More baristas"
+              className="grid h-7 w-7 place-items-center rounded-full bg-steam/15 hover:bg-steam/25"
+            >
+              <Plus size={14} />
+            </button>
           </div>
-          <button onClick={onSignOut} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-steam/80 hover:bg-steam/10">
+          <button
+            onClick={onSignOut}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-steam/80 hover:bg-steam/10"
+          >
             <LogOut size={15} aria-hidden="true" /> Sign out
           </button>
         </div>
       </header>
 
-      {error && <div role="alert" className="bg-cherry px-6 py-2 text-sm text-white">{error}</div>}
+      {error && (
+        <div role="alert" className="bg-cherry px-6 py-2 text-sm text-white">
+          {error}
+        </div>
+      )}
 
       <div className="grid gap-6 p-6 xl:grid-cols-[1fr_380px]">
         <div className="grid gap-4 md:grid-cols-3">
@@ -107,13 +150,23 @@ export default function Dashboard({ token, onSignOut }) {
                   <span className="font-display text-lg font-bold">{col.title}</span>
                   <span className="text-sm text-muted">{list.length}</span>
                 </h2>
-                {!board && <div className="flex justify-center py-8 text-muted"><Spinner /></div>}
+                {!board && (
+                  <div className="flex justify-center py-8 text-muted">
+                    <Spinner />
+                  </div>
+                )}
                 {board && list.length === 0 && <p className="px-2 py-6 text-sm text-muted">Nothing here right now.</p>}
                 <div className="space-y-3">
                   {list.map((v) => (
-                    <OrderCard key={v.order.id} view={v} now={now} col={col} busy={!!pending[v.order.id]}
+                    <OrderCard
+                      key={v.order.id}
+                      view={v}
+                      now={now}
+                      col={col}
+                      busy={!!pending[v.order.id]}
                       onAdvance={() => advance(v.order, col.next)}
-                      onCancel={col.status !== 'READY' ? () => advance(v.order, 'CANCELLED') : null} />
+                      onCancel={col.status !== 'READY' ? () => advance(v.order, 'CANCELLED') : null}
+                    />
                   ))}
                 </div>
               </section>
@@ -135,10 +188,14 @@ function OrderCard({ view, now, col, busy, onAdvance, onCancel }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-display text-2xl font-extrabold leading-none">#{order.code}</p>
-          <p className="mt-1 text-sm text-muted">{order.customerName}, table {order.table}</p>
+          <p className="mt-1 text-sm text-muted">
+            {order.customerName}, table {order.table}
+          </p>
         </div>
         <div className="text-right text-xs">
-          <p className={late ? 'font-semibold text-cherry' : 'text-muted'}>{ageMin === 0 ? 'just now' : `${ageMin} min ago`}</p>
+          <p className={late ? 'font-semibold text-cherry' : 'text-muted'}>
+            {ageMin === 0 ? 'just now' : `${ageMin} min ago`}
+          </p>
           {order.status !== 'READY' && <p className="text-muted">ETA {etaMinutes} min</p>}
         </div>
       </div>
@@ -154,10 +211,19 @@ function OrderCard({ view, now, col, busy, onAdvance, onCancel }) {
         <span className="text-sm text-muted">{rupees(order.total)}</span>
         <div className="flex gap-2">
           {onCancel && (
-            <button onClick={onCancel} disabled={busy} className="rounded-full px-3 py-2 text-xs text-muted hover:text-cherry disabled:opacity-50">Cancel</button>
+            <button
+              onClick={onCancel}
+              disabled={busy}
+              className="rounded-full px-3 py-2 text-xs text-muted hover:text-cherry disabled:opacity-50"
+            >
+              Cancel
+            </button>
           )}
-          <button onClick={onAdvance} disabled={busy}
-            className="flex items-center gap-1.5 rounded-full bg-leaf px-4 py-2 text-sm font-semibold text-steam hover:bg-roast disabled:opacity-60">
+          <button
+            onClick={onAdvance}
+            disabled={busy}
+            className="flex items-center gap-1.5 rounded-full bg-leaf px-4 py-2 text-sm font-semibold text-steam hover:bg-roast disabled:opacity-60"
+          >
             {busy && <Spinner />} {col.action}
           </button>
         </div>

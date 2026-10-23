@@ -6,8 +6,22 @@ import MenuTab from './MenuTab.jsx'
 
 const session = { id: 's1', name: 'Asha' }
 
-const espresso = { id: 'espresso', name: 'Espresso', category: 'Espresso bar', description: 'Double shot', price: 160, tags: ['hot', 'vegan'] }
-const coldBrew = { id: 'cold-brew', name: 'Cold Brew', category: 'Cold coffee', description: 'Slow steeped', price: 240, tags: ['cold'] }
+const espresso = {
+  id: 'espresso',
+  name: 'Espresso',
+  category: 'Espresso bar',
+  description: 'Double shot',
+  price: 160,
+  tags: ['hot', 'vegan'],
+}
+const coldBrew = {
+  id: 'cold-brew',
+  name: 'Cold Brew',
+  category: 'Cold coffee',
+  description: 'Slow steeped',
+  price: 240,
+  tags: ['cold'],
+}
 const toast = { id: 'toast', name: 'Toast', category: 'Bakery & bites', description: 'Buttered', price: 320, tags: [] }
 const menu = [espresso, coldBrew, toast]
 
@@ -76,7 +90,10 @@ describe('MenuTab', () => {
 
     it('shows the headline, each pick and its reason', async () => {
       const { onAdd } = setup({
-        picks: Promise.resolve({ headline: 'Something bold today', picks: [{ item: espresso, reason: 'Matches your taste' }] }),
+        picks: Promise.resolve({
+          headline: 'Something bold today',
+          picks: [{ item: espresso, reason: 'Matches your taste' }],
+        }),
       })
 
       expect(await screen.findByRole('heading', { name: 'Something bold today' })).toBeInTheDocument()

@@ -14,7 +14,13 @@ function entry(id, code, status, { name = 'Asha', table = '7', ageMin = 1, prep 
   return {
     etaMinutes: eta,
     order: {
-      id, code, customerName: name, table, status, prepMinutes: prep, total: 320,
+      id,
+      code,
+      customerName: name,
+      table,
+      status,
+      prepMinutes: prep,
+      total: 320,
       createdAt: Date.now() - ageMin * 60000,
       items: [{ itemId: 'espresso', name: 'Espresso', qty: 2, unitPrice: 160, note }],
     },
@@ -67,11 +73,9 @@ describe('Dashboard: the order board', () => {
   })
 
   it('puts each order in the column for its status with counts', async () => {
-    await renderDashboard(board([
-      entry('o1', '101', 'PLACED'),
-      entry('o2', '102', 'PLACED'),
-      entry('o3', '103', 'PREPARING'),
-    ]))
+    await renderDashboard(
+      board([entry('o1', '101', 'PLACED'), entry('o2', '102', 'PLACED'), entry('o3', '103', 'PREPARING')]),
+    )
 
     expect(within(column('New')).getAllByRole('article')).toHaveLength(2)
     expect(within(column('Brewing')).getByText('#103')).toBeInTheDocument()
@@ -80,7 +84,9 @@ describe('Dashboard: the order board', () => {
   })
 
   it('shows the guest, table, items, note, total and ETA on a card', async () => {
-    await renderDashboard(board([entry('o1', '101', 'PLACED', { name: 'Ravi', table: '2', eta: 9, note: 'extra hot' })]))
+    await renderDashboard(
+      board([entry('o1', '101', 'PLACED', { name: 'Ravi', table: '2', eta: 9, note: 'extra hot' })]),
+    )
 
     const c = within(card('101'))
     expect(c.getByText('Ravi, table 2')).toBeInTheDocument()
@@ -97,18 +103,22 @@ describe('Dashboard: the order board', () => {
   })
 
   it('shows how long ago an order came in', async () => {
-    await renderDashboard(board([entry('o1', '101', 'PLACED', { ageMin: 0 }), entry('o2', '102', 'PLACED', { ageMin: 3 })]))
+    await renderDashboard(
+      board([entry('o1', '101', 'PLACED', { ageMin: 0 }), entry('o2', '102', 'PLACED', { ageMin: 3 })]),
+    )
 
     expect(within(card('101')).getByText('just now')).toBeInTheDocument()
     expect(within(card('102')).getByText('3 min ago')).toBeInTheDocument()
   })
 
   it('flags an order as late once it is more than five minutes past its prep time', async () => {
-    await renderDashboard(board([
-      entry('late', '101', 'PREPARING', { ageMin: 20, prep: 4 }),
-      entry('ok', '102', 'PREPARING', { ageMin: 9, prep: 4 }),
-      entry('old-ready', '103', 'READY', { ageMin: 60, prep: 4 }),
-    ]))
+    await renderDashboard(
+      board([
+        entry('late', '101', 'PREPARING', { ageMin: 20, prep: 4 }),
+        entry('ok', '102', 'PREPARING', { ageMin: 9, prep: 4 }),
+        entry('old-ready', '103', 'READY', { ageMin: 60, prep: 4 }),
+      ]),
+    )
 
     expect(within(card('101')).getByText('20 min ago')).toHaveClass('text-cherry')
     expect(within(card('102')).getByText('9 min ago')).not.toHaveClass('text-cherry')
@@ -149,9 +159,13 @@ describe('Dashboard: moving an order along (advance)', () => {
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
   })
 
-  it('disables only that order\'s buttons while the change is in flight', async () => {
+  it("disables only that order's buttons while the change is in flight", async () => {
     let finish
-    api.setStatus.mockReturnValue(new Promise((resolve) => { finish = resolve }))
+    api.setStatus.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
     await renderDashboard(board([entry('o1', '101', 'PLACED'), entry('o2', '102', 'PLACED')]))
 
     await user().click(within(card('101')).getByRole('button', { name: 'Start' }))

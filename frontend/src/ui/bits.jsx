@@ -17,7 +17,12 @@ export function ItemGlyph({ category, size = 'md' }) {
   )
 }
 
-const TAG_LABEL = { vegan: 'Vegan', 'dairy-free': 'Dairy-free', 'low-sugar': 'Low sugar', 'caffeine-free': 'No caffeine' }
+const TAG_LABEL = {
+  vegan: 'Vegan',
+  'dairy-free': 'Dairy-free',
+  'low-sugar': 'Low sugar',
+  'caffeine-free': 'No caffeine',
+}
 
 export function Tags({ tags = [] }) {
   const shown = tags.filter((t) => TAG_LABEL[t])
@@ -25,7 +30,9 @@ export function Tags({ tags = [] }) {
   return (
     <div className="mt-1.5 flex flex-wrap gap-1">
       {shown.map((t) => (
-        <span key={t} className="rounded-full bg-leaf-soft px-2 py-0.5 text-[11px] font-medium text-leaf">{TAG_LABEL[t]}</span>
+        <span key={t} className="rounded-full bg-leaf-soft px-2 py-0.5 text-[11px] font-medium text-leaf">
+          {TAG_LABEL[t]}
+        </span>
       ))}
     </div>
   )
@@ -41,7 +48,9 @@ export function ErrorNote({ message, onRetry }) {
     <div role="alert" className="rounded-xl border border-cherry/30 bg-cherry-soft px-4 py-3 text-sm text-cherry">
       {message}
       {onRetry && (
-        <button onClick={onRetry} className="ml-2 font-semibold underline underline-offset-2">Try again</button>
+        <button onClick={onRetry} className="ml-2 font-semibold underline underline-offset-2">
+          Try again
+        </button>
       )}
     </div>
   )

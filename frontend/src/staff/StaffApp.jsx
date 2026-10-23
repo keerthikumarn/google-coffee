@@ -6,8 +6,24 @@ import Dashboard from './Dashboard.jsx'
 export default function StaffApp() {
   const [token, setToken] = useState(() => store.get('gc.staffToken'))
 
-  if (!token) return <Login onToken={(t) => { store.set('gc.staffToken', t); setToken(t) }} />
-  return <Dashboard token={token} onSignOut={() => { store.remove('gc.staffToken'); setToken(null) }} />
+  if (!token)
+    return (
+      <Login
+        onToken={(t) => {
+          store.set('gc.staffToken', t)
+          setToken(t)
+        }}
+      />
+    )
+  return (
+    <Dashboard
+      token={token}
+      onSignOut={() => {
+        store.remove('gc.staffToken')
+        setToken(null)
+      }}
+    />
+  )
 }
 
 function Login({ onToken }) {
@@ -38,11 +54,22 @@ function Login({ onToken }) {
         <p className="mt-1 text-muted">Bar and floor dashboard</p>
         <label className="mt-8 block">
           <span className="text-sm font-semibold">Staff PIN</span>
-          <input type="password" inputMode="numeric" autoComplete="current-password" value={pin} onChange={(e) => setPin(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-leaf" />
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="current-password"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-leaf"
+          />
         </label>
-        <div className="mt-4"><ErrorNote message={error} /></div>
-        <button disabled={busy} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-leaf py-3.5 font-semibold text-steam disabled:opacity-60">
+        <div className="mt-4">
+          <ErrorNote message={error} />
+        </div>
+        <button
+          disabled={busy}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-leaf py-3.5 font-semibold text-steam disabled:opacity-60"
+        >
           {busy && <Spinner />} Open dashboard
         </button>
       </form>

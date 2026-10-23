@@ -14,37 +14,67 @@ async function request(path, { method = 'GET', body, token } = {}) {
 }
 
 function safeJson(text) {
-  try { return JSON.parse(text) } catch { return null }
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
 }
 
 export class ApiError extends Error {
-  constructor(message, status) { super(message); this.status = status }
+  constructor(message, status) {
+    super(message)
+    this.status = status
+  }
 }
 
 export const api = {
   menu: () => request('/api/menu'),
   cafeStatus: () => request('/api/cafe/status'),
-  createSession: (name, table, preferences) => request('/api/sessions', { method: 'POST', body: { name, table, preferences } }),
+  createSession: (name, table, preferences) =>
+    request('/api/sessions', { method: 'POST', body: { name, table, preferences } }),
   session: (id) => request(`/api/sessions/${id}`),
-  updatePreferences: (id, preferences) => request(`/api/sessions/${id}/preferences`, { method: 'PUT', body: { preferences } }),
-  chat: (sessionId, message, history) => request('/api/chat', { method: 'POST', body: { sessionId, message, history } }),
+  updatePreferences: (id, preferences) =>
+    request(`/api/sessions/${id}/preferences`, { method: 'PUT', body: { preferences } }),
+  chat: (sessionId, message, history) =>
+    request('/api/chat', { method: 'POST', body: { sessionId, message, history } }),
   recommendations: (sessionId) => request(`/api/recommendations?sessionId=${encodeURIComponent(sessionId)}`),
   estimate: (items) => request('/api/orders/estimate', { method: 'POST', body: { items } }),
   placeOrder: (sessionId, items) => request('/api/orders', { method: 'POST', body: { sessionId, items } }),
   order: (id, sessionId) => request(`/api/orders/${id}?sessionId=${encodeURIComponent(sessionId)}`),
-  feedback: (sessionId, orderId, rating, comment) => request('/api/feedback', { method: 'POST', body: { sessionId, orderId, rating, comment } }),
+  feedback: (sessionId, orderId, rating, comment) =>
+    request('/api/feedback', { method: 'POST', body: { sessionId, orderId, rating, comment } }),
 
   staffLogin: (pin) => request('/api/staff/login', { method: 'POST', body: { pin } }),
   staffBoard: (token) => request('/api/staff/board', { token }),
   setStatus: (token, id, status) => request(`/api/staff/orders/${id}`, { method: 'PATCH', token, body: { status } }),
-  setBaristas: (token, activeBaristas) => request('/api/staff/settings', { method: 'PUT', token, body: { activeBaristas } }),
+  setBaristas: (token, activeBaristas) =>
+    request('/api/staff/settings', { method: 'PUT', token, body: { activeBaristas } }),
   pulse: (token, refresh = false) => request(`/api/staff/pulse?refresh=${refresh}`, { token }),
 }
 
 export const store = {
-  get(key) { try { return JSON.parse(localStorage.getItem(key)) } catch { return null } },
-  set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* storage unavailable */ } },
-  remove(key) { try { localStorage.removeItem(key) } catch { /* storage unavailable */ } },
+  get(key) {
+    try {
+      return JSON.parse(localStorage.getItem(key))
+    } catch {
+      return null
+    }
+  },
+  set(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value))
+    } catch {
+      /* storage unavailable */
+    }
+  },
+  remove(key) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      /* storage unavailable */
+    }
+  },
 }
 
 export const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`

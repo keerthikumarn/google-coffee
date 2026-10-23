@@ -12,10 +12,13 @@ export default function MenuTab({ session, menu, onAdd, cartQty }) {
 
   useEffect(() => {
     let cancelled = false
-    api.recommendations(session.id)
+    api
+      .recommendations(session.id)
       .then((r) => !cancelled && setPicks(r))
       .catch(() => !cancelled && setPicksError(true))
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [session.id])
 
   const visible = useMemo(
@@ -31,9 +34,15 @@ export default function MenuTab({ session, menu, onAdd, cartQty }) {
           <span className="text-sm font-medium">Picked by Brew for {session.name}</span>
         </div>
         {!picks && !picksError && (
-          <div className="flex items-center gap-2 py-6 text-sm text-steam/70"><Spinner /> Reading the menu for you</div>
+          <div className="flex items-center gap-2 py-6 text-sm text-steam/70">
+            <Spinner /> Reading the menu for you
+          </div>
         )}
-        {picksError && <p className="py-4 text-sm text-steam/70">Recommendations are unavailable right now. The full menu is below.</p>}
+        {picksError && (
+          <p className="py-4 text-sm text-steam/70">
+            Recommendations are unavailable right now. The full menu is below.
+          </p>
+        )}
         {picks && (
           <>
             <h2 className="mt-1 font-display text-2xl font-bold leading-tight">{picks.headline}</h2>
@@ -45,8 +54,11 @@ export default function MenuTab({ session, menu, onAdd, cartQty }) {
                   <p className="mt-1 text-sm leading-snug text-muted">{reason}</p>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="font-semibold">{rupees(item.price)}</span>
-                    <button onClick={() => onAdd(item)} aria-label={`Add ${item.name}`}
-                      className="grid h-9 w-9 place-items-center rounded-full bg-leaf text-steam hover:bg-roast">
+                    <button
+                      onClick={() => onAdd(item)}
+                      aria-label={`Add ${item.name}`}
+                      className="grid h-9 w-9 place-items-center rounded-full bg-leaf text-steam hover:bg-roast"
+                    >
                       <Plus size={18} />
                     </button>
                   </div>
@@ -60,8 +72,12 @@ export default function MenuTab({ session, menu, onAdd, cartQty }) {
       <section aria-label="Menu">
         <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
           {['All', ...CATEGORIES].map((c) => (
-            <button key={c} onClick={() => setCategory(c)} aria-pressed={category === c}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${category === c ? 'bg-roast text-steam' : 'bg-white text-roast'}`}>
+            <button
+              key={c}
+              onClick={() => setCategory(c)}
+              aria-pressed={category === c}
+              className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${category === c ? 'bg-roast text-steam' : 'bg-white text-roast'}`}
+            >
               {c}
             </button>
           ))}
@@ -79,8 +95,11 @@ export default function MenuTab({ session, menu, onAdd, cartQty }) {
                 <p className="mt-0.5 text-sm leading-snug text-muted">{item.description}</p>
                 <Tags tags={item.tags} />
               </div>
-              <button onClick={() => onAdd(item)} aria-label={`Add ${item.name}`}
-                className="relative grid h-10 w-10 shrink-0 place-items-center self-center rounded-full border border-line text-leaf hover:border-leaf">
+              <button
+                onClick={() => onAdd(item)}
+                aria-label={`Add ${item.name}`}
+                className="relative grid h-10 w-10 shrink-0 place-items-center self-center rounded-full border border-line text-leaf hover:border-leaf"
+              >
                 <Plus size={18} />
                 {cartQty(item.id) > 0 && (
                   <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-cherry px-1 text-[11px] font-bold text-white">

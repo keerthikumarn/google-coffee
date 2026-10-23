@@ -136,7 +136,9 @@ describe('store (localStorage wrapper)', () => {
   })
 
   it('never throws when storage is unavailable', () => {
-    const broken = () => { throw new Error('storage blocked') }
+    const broken = () => {
+      throw new Error('storage blocked')
+    }
     vi.stubGlobal('localStorage', { getItem: broken, setItem: broken, removeItem: broken })
 
     expect(() => store.set('k', 1)).not.toThrow()

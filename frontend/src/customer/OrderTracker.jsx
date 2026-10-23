@@ -29,14 +29,26 @@ export default function OrderTracker({ session, orderId, onOrderAgain, onMissing
     let es
     let closed = false
     let sseDelivered = false
-    const refresh = () => api.order(orderId, session.id).then(setView).catch((e) => {
-      // Order no longer exists (e.g. a different database): forget it instead of retrying forever.
-      if (e.status === 404) { closed = true; es?.close(); onMissing?.() } else setError(e.message)
-    })
+    const refresh = () =>
+      api
+        .order(orderId, session.id)
+        .then(setView)
+        .catch((e) => {
+          // Order no longer exists (e.g. a different database): forget it instead of retrying forever.
+          if (e.status === 404) {
+            closed = true
+            es?.close()
+            onMissing?.()
+          } else setError(e.message)
+        })
     refresh()
     function connect() {
       es = new EventSource(`/api/orders/${orderId}/stream?sessionId=${encodeURIComponent(session.id)}`)
-      es.addEventListener('order', (e) => { sseDelivered = true; setView(JSON.parse(e.data)); setLive(true) })
+      es.addEventListener('order', (e) => {
+        sseDelivered = true
+        setView(JSON.parse(e.data))
+        setLive(true)
+      })
       es.onerror = () => {
         sseDelivered = false
         setLive(false)
@@ -45,8 +57,14 @@ export default function OrderTracker({ session, orderId, onOrderAgain, onMissing
     }
     connect()
     // Fallback for networks that buffer SSE (e.g. Cloudflare quick tunnels): poll until SSE delivers.
-    const poll = setInterval(() => { if (!sseDelivered) refresh() }, 3000)
-    return () => { closed = true; es?.close(); clearInterval(poll) }
+    const poll = setInterval(() => {
+      if (!sseDelivered) refresh()
+    }, 3000)
+    return () => {
+      closed = true
+      es?.close()
+      clearInterval(poll)
+    }
   }, [orderId, session.id, onMissing])
 
   if (!orderId) {
@@ -58,7 +76,12 @@ export default function OrderTracker({ session, orderId, onOrderAgain, onMissing
     )
   }
   if (error && !view) return <ErrorNote message={error} />
-  if (!view) return <div className="flex justify-center py-16 text-muted"><Spinner /></div>
+  if (!view)
+    return (
+      <div className="flex justify-center py-16 text-muted">
+        <Spinner />
+      </div>
+    )
 
   const { order, etaMinutes, queuePosition } = view
   const status = order.status
@@ -71,7 +94,9 @@ export default function OrderTracker({ session, orderId, onOrderAgain, onMissing
         <p className="text-sm font-medium text-muted">Pickup code</p>
         <p className="font-display text-6xl font-extrabold tracking-tight">#{order.code}</p>
         <CoffeeCup level={LEVEL[status] ?? 0} steaming={status === 'READY'} />
-        <h2 className="font-display text-2xl font-bold" aria-live="polite">{HEADLINE[status]}</h2>
+        <h2 className="font-display text-2xl font-bold" aria-live="polite">
+          {HEADLINE[status]}
+        </h2>
         <p className="mt-1 text-muted">
           {status === 'READY' && `Collect from the counter, ${order.customerName}.`}
           {(status === 'PLACED' || status === 'PREPARING') &&
@@ -86,7 +111,9 @@ export default function OrderTracker({ session, orderId, onOrderAgain, onMissing
               return (
                 <li key={s.status} className="text-center">
                   <div className={`h-1.5 rounded-full ${reached ? 'bg-leaf' : 'bg-line'}`} />
-                  <span className={`mt-2 block text-xs font-semibold ${reached ? 'text-leaf' : 'text-muted'}`}>{s.label}</span>
+                  <span className={`mt-2 block text-xs font-semibold ${reached ? 'text-leaf' : 'text-muted'}`}>
+                    {s.label}
+                  </span>
                 </li>
               )
             })}
@@ -103,20 +130,27 @@ export default function OrderTracker({ session, orderId, onOrderAgain, onMissing
         <ul className="mt-2 space-y-1 text-sm">
           {order.items.map((i) => (
             <li key={i.itemId} className="flex justify-between gap-2">
-              <span>{i.qty} × {i.name}{i.note ? <span className="text-muted">, {i.note}</span> : null}</span>
+              <span>
+                {i.qty} × {i.name}
+                {i.note ? <span className="text-muted">, {i.note}</span> : null}
+              </span>
               <span>{rupees(i.unitPrice * i.qty)}</span>
             </li>
           ))}
         </ul>
         <div className="mt-3 flex justify-between border-t border-line pt-3 font-semibold">
-          <span>Total, pay at counter</span><span>{rupees(order.total)}</span>
+          <span>Total, pay at counter</span>
+          <span>{rupees(order.total)}</span>
         </div>
       </section>
 
       <FeedbackCard session={session} orderId={order.id} />
 
       {done && (
-        <button onClick={onOrderAgain} className="w-full rounded-2xl bg-roast py-4 font-semibold text-steam hover:bg-roast-soft">
+        <button
+          onClick={onOrderAgain}
+          className="w-full rounded-2xl bg-roast py-4 font-semibold text-steam hover:bg-roast-soft"
+        >
           Order something else
         </button>
       )}
@@ -165,18 +199,36 @@ function FeedbackCard({ session, orderId }) {
       <h3 className="font-semibold">How’s your visit so far?</h3>
       <div className="mt-3 flex justify-between" role="radiogroup" aria-label="Rating">
         {FACES.map(({ rating: r, Icon, label }) => (
-          <button key={r} role="radio" aria-checked={rating === r} aria-label={label} onClick={() => { setRating(r); setError('') }}
-            className={`grid h-12 w-12 place-items-center rounded-full transition ${rating === r ? 'bg-crema text-roast' : 'bg-steam text-muted hover:text-roast'}`}>
+          <button
+            key={r}
+            role="radio"
+            aria-checked={rating === r}
+            aria-label={label}
+            onClick={() => {
+              setRating(r)
+              setError('')
+            }}
+            className={`grid h-12 w-12 place-items-center rounded-full transition ${rating === r ? 'bg-crema text-roast' : 'bg-steam text-muted hover:text-roast'}`}
+          >
             <Icon size={24} strokeWidth={1.8} />
           </button>
         ))}
       </div>
-      <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={300} rows={2}
-        placeholder="Music, temperature, wifi, your drink… anything" aria-label="Comment"
-        className="mt-4 w-full resize-none rounded-xl bg-steam px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-leaf" />
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        maxLength={300}
+        rows={2}
+        placeholder="Music, temperature, wifi, your drink… anything"
+        aria-label="Comment"
+        className="mt-4 w-full resize-none rounded-xl bg-steam px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-leaf"
+      />
       {error && <p className="mt-2 text-sm text-cherry">{error}</p>}
-      <button onClick={submit} disabled={state === 'sending'}
-        className="mt-3 flex items-center gap-2 rounded-full bg-leaf px-5 py-2.5 text-sm font-semibold text-steam disabled:opacity-60">
+      <button
+        onClick={submit}
+        disabled={state === 'sending'}
+        className="mt-3 flex items-center gap-2 rounded-full bg-leaf px-5 py-2.5 text-sm font-semibold text-steam disabled:opacity-60"
+      >
         {state === 'sending' && <Spinner />} Send feedback
       </button>
     </section>

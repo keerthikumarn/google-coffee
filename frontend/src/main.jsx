@@ -6,6 +6,4 @@ import StaffApp from './staff/StaffApp.jsx'
 
 const isStaff = window.location.pathname.startsWith('/staff')
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>{isStaff ? <StaffApp /> : <CustomerApp />}</StrictMode>,
-)
+createRoot(document.getElementById('root')).render(<StrictMode>{isStaff ? <StaffApp /> : <CustomerApp />}</StrictMode>)

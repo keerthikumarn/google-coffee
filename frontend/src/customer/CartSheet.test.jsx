@@ -9,7 +9,10 @@ const toast = { id: 'toast', name: 'Toast', price: 320 }
 
 function props(overrides = {}) {
   return {
-    cart: [{ item: espresso, qty: 2, note: '' }, { item: toast, qty: 1, note: '' }],
+    cart: [
+      { item: espresso, qty: 2, note: '' },
+      { item: toast, qty: 1, note: '' },
+    ],
     setQty: vi.fn(),
     setNote: vi.fn(),
     onClose: vi.fn(),

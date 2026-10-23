@@ -12,7 +12,11 @@ function view(status = 'PLACED', { eta = 6, position = 1, ...order } = {}) {
     etaMinutes: eta,
     queuePosition: position,
     order: {
-      id: 'o1', code: '123', customerName: 'Asha', status, total: 640,
+      id: 'o1',
+      code: '123',
+      customerName: 'Asha',
+      status,
+      total: 640,
       items: [{ itemId: 'espresso', name: 'Espresso', qty: 2, unitPrice: 160, note: 'extra hot' }],
       ...order,
     },
@@ -25,7 +29,9 @@ const advance = (ms) => act(() => vi.advanceTimersByTimeAsync(ms))
 
 async function renderTracker(initial = view(), props = {}) {
   vi.spyOn(api, 'order').mockResolvedValue(initial)
-  const utils = render(<OrderTracker session={session} orderId="o1" onOrderAgain={vi.fn()} onMissing={vi.fn()} {...props} />)
+  const utils = render(
+    <OrderTracker session={session} orderId="o1" onOrderAgain={vi.fn()} onMissing={vi.fn()} {...props} />,
+  )
   await flush()
   return utils
 }
@@ -53,8 +59,8 @@ describe('OrderTracker: what the guest sees', () => {
 
     expect(screen.getByText('#123')).toBeInTheDocument()
     expect(screen.getByText(/2 × Espresso/)).toHaveTextContent('2 × Espresso, extra hot')
-    expect(screen.getByText('₹320')).toBeInTheDocument()   // 2 x ₹160 line
-    expect(screen.getByText('₹640')).toBeInTheDocument()   // order total
+    expect(screen.getByText('₹320')).toBeInTheDocument() // 2 x ₹160 line
+    expect(screen.getByText('₹640')).toBeInTheDocument() // order total
     expect(api.order).toHaveBeenCalledWith('o1', 's1')
   })
 
@@ -71,9 +77,10 @@ describe('OrderTracker: what the guest sees', () => {
   })
 
   describe('progress steps', () => {
-    const reached = () => within(screen.getByRole('list', { name: 'Order progress' }))
-      .getAllByRole('listitem')
-      .map((li) => (li.querySelector('span').className.includes('text-leaf') ? 1 : 0))
+    const reached = () =>
+      within(screen.getByRole('list', { name: 'Order progress' }))
+        .getAllByRole('listitem')
+        .map((li) => (li.querySelector('span').className.includes('text-leaf') ? 1 : 0))
 
     it.each([
       ['PLACED', [1, 0, 0]],
@@ -84,8 +91,12 @@ describe('OrderTracker: what the guest sees', () => {
       await renderTracker(view(status))
 
       expect(reached()).toEqual(expected)
-      expect(screen.getAllByRole('listitem').slice(0, 3).map((li) => li.textContent))
-        .toEqual(['Received', 'Brewing', 'Ready'])
+      expect(
+        screen
+          .getAllByRole('listitem')
+          .slice(0, 3)
+          .map((li) => li.textContent),
+      ).toEqual(['Received', 'Brewing', 'Ready'])
     })
 
     it('hides the progress steps for a cancelled order', async () => {

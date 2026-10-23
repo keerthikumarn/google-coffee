@@ -32,7 +32,9 @@ export default function Welcome({ onStart }) {
       <div className="anim-rise">
         <p className="text-sm font-medium text-muted">Specialty coffee, Bengaluru</p>
         <h1 className="mt-2 font-display text-[3.4rem] font-extrabold leading-[0.92] tracking-tight text-roast">
-          Google<br />Coffee
+          Google
+          <br />
+          Coffee
         </h1>
         <p className="mt-4 max-w-[30ch] text-[17px] leading-relaxed text-roast-soft">
           Order from your table, ask our AI barista what to try, and watch your cup fill up as we make it.
@@ -43,13 +45,25 @@ export default function Welcome({ onStart }) {
         <div className="grid grid-cols-[1fr_96px] gap-3">
           <label className="block">
             <span className="text-sm font-semibold">Your name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} autoComplete="given-name"
-              className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-base outline-none focus:border-leaf" placeholder="Priya" />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={40}
+              autoComplete="given-name"
+              className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-base outline-none focus:border-leaf"
+              placeholder="Priya"
+            />
           </label>
           <label className="block">
             <span className="text-sm font-semibold">Table</span>
-            <input value={table} onChange={(e) => setTable(e.target.value)} maxLength={10} inputMode="numeric"
-              className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-base outline-none focus:border-leaf" placeholder="7" />
+            <input
+              value={table}
+              onChange={(e) => setTable(e.target.value)}
+              maxLength={10}
+              inputMode="numeric"
+              className="mt-1.5 w-full rounded-xl border border-line bg-white px-4 py-3 text-base outline-none focus:border-leaf"
+              placeholder="7"
+            />
           </label>
         </div>
 
@@ -60,8 +74,13 @@ export default function Welcome({ onStart }) {
             {PREFERENCES.map((p) => {
               const on = prefs.includes(p.id)
               return (
-                <button type="button" key={p.id} onClick={() => toggle(p.id)} aria-pressed={on}
-                  className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${on ? 'border-leaf bg-leaf text-steam' : 'border-line bg-white text-roast hover:border-roast-soft'}`}>
+                <button
+                  type="button"
+                  key={p.id}
+                  onClick={() => toggle(p.id)}
+                  aria-pressed={on}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${on ? 'border-leaf bg-leaf text-steam' : 'border-line bg-white text-roast hover:border-roast-soft'}`}
+                >
                   {p.label}
                 </button>
               )
@@ -71,10 +90,15 @@ export default function Welcome({ onStart }) {
 
         <ErrorNote message={error} />
 
-        <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-roast py-4 text-base font-semibold text-steam transition hover:bg-roast-soft disabled:opacity-60">
+        <button
+          disabled={busy}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-roast py-4 text-base font-semibold text-steam transition hover:bg-roast-soft disabled:opacity-60"
+        >
           {busy && <Spinner />} Start ordering
         </button>
-        <p className="text-center text-xs text-muted">Pay at the counter when you collect. Menu shown is sample data.</p>
+        <p className="text-center text-xs text-muted">
+          Pay at the counter when you collect. Menu shown is sample data.
+        </p>
       </form>
     </main>
   )
