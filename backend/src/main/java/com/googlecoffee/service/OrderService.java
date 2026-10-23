@@ -14,7 +14,10 @@ import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.IntUnaryOperator;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
@@ -66,11 +69,28 @@ public class OrderService {
         int total = items.stream().mapToInt(i -> i.unitPrice() * i.qty()).sum();
         int prep = EtaCalculator.orderPrepMinutes(items, menu::find);
         long now = System.currentTimeMillis();
-        String code = String.valueOf(100 + RANDOM.nextInt(900));
+        Set<String> inUse = hub.activeOrders().stream().map(Order::code).collect(Collectors.toSet());
+        String code = pickupCode(inUse, RANDOM::nextInt);
         Order order = new Order(UUID.randomUUID().toString(), code, s.id(), s.name(), s.table(),
                 items, total, prep, OrderStatus.PLACED, now, now);
         store.insert(order);
         return hub.viewOf(order);
+    }
+
+    /**
+     * A three-digit code the barista can call out. Never one that an open order is already using, so two
+     * guests are not called by the same number. Random first (the common case), then the first free
+     * three-digit code, and only when all 900 are taken a four-digit one.
+     */
+    static String pickupCode(Set<String> inUse, IntUnaryOperator nextInt) {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            String code = String.valueOf(100 + nextInt.applyAsInt(900));
+            if (!inUse.contains(code)) return code;
+        }
+        for (int n = 100; ; n++) {
+            String code = String.valueOf(n);
+            if (!inUse.contains(code)) return code;
+        }
     }
 
     public Order get(String orderId) {

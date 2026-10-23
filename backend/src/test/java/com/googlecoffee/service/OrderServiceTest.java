@@ -19,6 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
 import java.util.List;
+import java.util.Set;
+import java.util.function.IntUnaryOperator;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -102,6 +105,45 @@ class OrderServiceTest {
     @Test
     void placeRejectsBlankSession() {
         assertApiError(HttpStatus.BAD_REQUEST, () -> service.place(" ", List.of(line("espresso", 1))));
+    }
+
+    // ---------- pickup codes ----------
+
+    @Test
+    void pickupCodeSkipsCodesUsedByOpenOrders() {
+        int[] draws = {23, 24};   // "123" is taken, "124" is free
+        int[] next = {0};
+        IntUnaryOperator random = bound -> draws[next[0]++];
+
+        assertEquals("124", OrderService.pickupCode(Set.of("123"), random));
+    }
+
+    @Test
+    void pickupCodeFallsBackToTheFirstFreeCodeWhenRandomKeepsHittingTakenOnes() {
+        Set<String> taken = Set.of("100", "101", "102");
+
+        assertEquals("103", OrderService.pickupCode(taken, bound -> 0));
+    }
+
+    @Test
+    void pickupCodeGrowsToFourDigitsOnlyWhenEveryThreeDigitCodeIsTaken() {
+        Set<String> all = IntStream.rangeClosed(100, 999).mapToObj(String::valueOf).collect(java.util.stream.Collectors.toSet());
+
+        assertEquals("1000", OrderService.pickupCode(all, bound -> 0));
+    }
+
+    @Test
+    void placedOrderNeverReusesTheCodeOfAnOpenOrder() {
+        List<Order> open = IntStream.rangeClosed(100, 999)
+                .filter(code -> code != 555)
+                .mapToObj(code -> new Order("o" + code, String.valueOf(code), "s", "Guest", "1", List.of(), 0, 3,
+                        OrderStatus.PLACED, code, code))
+                .toList();
+        feed.publishActive(open);
+
+        Order order = service.place(guest.id(), List.of(line("espresso", 1))).order();
+
+        assertEquals("555", order.code());
     }
 
     // ---------- cart validation ----------
