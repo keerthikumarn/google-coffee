@@ -1,6 +1,7 @@
 name: CI
 
-# Build and test on every push and every pull request.
+# Check style, then build and test, on every push and every pull request.
+# Style checks run before the tests so a formatting slip fails fast and cheaply.
 on:
   push:
   pull_request:
@@ -15,7 +16,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (test + package)
+    name: Backend (format, test, package)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -29,6 +30,10 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+
+      # Fix locally with: ./mvnw spotless:apply
+      - name: Check formatting
+        run: ./mvnw -B spotless:check
 
       # The PostgreSQL adapter tests start a real database with Testcontainers; the Ubuntu
       # runner provides Docker. Without Docker these tests fail, they are never skipped.
@@ -46,7 +51,7 @@ jobs:
           path: backend/target/surefire-reports
 
   frontend:
-    name: Frontend (Node ${{ matrix.node }})
+    name: Frontend (lint, test, build, Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -68,6 +73,13 @@ jobs:
 
       - name: Install
         run: npm ci --no-audit --no-fund
+
+      # Fix locally with: npm run lint:fix and npm run format
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
 
       - name: Test
         run: npm test
