@@ -22,6 +22,7 @@
     <google-genai.version>1.63.0</google-genai.version>
     <!-- Testcontainers 2.x talks to Docker 29+ (1.x is rejected: API version too old) -->
     <testcontainers.version>2.0.2</testcontainers.version>
+    <spotless.version>3.10.4</spotless.version>
   </properties>
 
   <dependencyManagement>
@@ -96,6 +97,33 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <!--
+        Formatting rules, kept deliberately small: no trailing whitespace, a final newline, no unused imports.
+        Check with ./mvnw spotless:check, fix with ./mvnw spotless:apply. Not bound to the build lifecycle,
+        so ./mvnw test is unaffected; CI runs the check as its own step. The Google Cloud specific files
+        are left out on purpose.
+      -->
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.version}</version>
+        <configuration>
+          <java>
+            <includes>
+              <include>src/**/*.java</include>
+            </includes>
+            <excludes>
+              <exclude>src/**/adapter/gcp/**</exclude>
+              <exclude>src/**/ai/GeminiService.java</exclude>
+              <exclude>src/**/ai/GeminiServiceTest.java</exclude>
+              <exclude>src/**/config/GcpConfig.java</exclude>
+            </excludes>
+            <trimTrailingWhitespace/>
+            <endWithNewline/>
+            <removeUnusedImports/>
+          </java>
+        </configuration>
       </plugin>
     </plugins>
   </build>
