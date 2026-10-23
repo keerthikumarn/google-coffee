@@ -45,13 +45,22 @@ npm test
 npm run build
 ```
 
+**Style checks.** CI runs these first, and they fail the build on any violation:
+
+```bash
+cd backend && ./mvnw spotless:check                       # fix with: ./mvnw spotless:apply
+cd frontend && npm run lint && npm run format:check       # fix with: npm run lint:fix && npm run format
+```
+
+The backend rules are deliberately small (no trailing whitespace, a final newline, no unused imports; the Google Cloud specific files are left out). The frontend uses ESLint (recommended, React and hooks rules) and Prettier (no semicolons, single quotes, width 120).
+
 A passing run ends with `BUILD SUCCESS` for the backend and `Tests … passed` for the frontend. The first backend run downloads Maven, the dependencies and the `postgres:17-alpine` image, so allow a few minutes; later runs are much quicker.
 
-**What the tests cover.** Backend: services run against in-memory fakes of the ports (orders, menu, sessions, settings, wait-time maths, dietary rules, staff auth) and the PostgreSQL adapters run against a real PostgreSQL with the production migrations (including concurrent status changes). Frontend: the API client plus the guest welcome form, menu, cart and the staff login.
+**What the tests cover.** Backend: services run against in-memory fakes of the ports (orders, menu, sessions, settings, wait-time maths, dietary rules, staff auth) and the PostgreSQL adapters run against a real PostgreSQL with the production migrations (including concurrent status changes). Frontend: the API client, the guest welcome form, menu, cart and order tracker (including its live-update fallbacks and feedback), and the staff login and dashboard.
 
 **No Docker?** The PostgreSQL tests then **fail** with a message saying so; they are never skipped, so a green build always means they ran. To run only the Docker-free tests: `./mvnw test -Dtest='!Pg*Test'`.
 
-**CI.** [GitHub Actions](.github/workflows/ci.yml) runs these same commands on every push and pull request: backend tests and package, frontend tests and build on Node 20 and 22, and a build of the production Docker image. Nothing is deployed.
+**CI.** [GitHub Actions](.github/workflows/ci.yml) runs these same commands on every push and pull request: formatting and lint checks first, then backend tests and package, frontend tests and build on Node 20 and 22, and a build of the production Docker image. Nothing is deployed.
 
 **Reproducible installs.** `frontend/package-lock.json` is committed, so use `npm ci` (not `npm install`). Backend dependency versions are pinned by the Spring Boot parent and the explicit versions in `backend/pom.xml`.
 

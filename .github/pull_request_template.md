@@ -11,4 +11,5 @@
 - [ ] One logical change (no mixed formatting / refactor / feature)
 - [ ] Tests for the new or fixed behavior are included
 - [ ] `./mvnw -B test` and `npm test` pass locally
+- [ ] `./mvnw spotless:check`, `npm run lint` and `npm run format:check` pass
 - [ ] Commit messages follow Conventional Commits (see CONTRIBUTING.md)

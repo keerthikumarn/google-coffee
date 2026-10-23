@@ -52,6 +52,22 @@ cd frontend && npm test
 
 Both suites must pass before you push. GitHub Actions runs them (plus the production image build) on every push and pull request. The backend tests need Docker for the PostgreSQL adapter tests; see the README for details.
 
+## Style checks
+
+CI checks formatting and lint before it runs any test, so run these before you push:
+
+```bash
+# backend (Spotless: no trailing whitespace, a final newline, no unused imports)
+cd backend && ./mvnw spotless:check       # to fix: ./mvnw spotless:apply
+
+# frontend (ESLint + Prettier)
+cd frontend && npm run lint && npm run format:check
+#                to fix: npm run lint:fix && npm run format
+```
+
+Keep style-only changes in their own `style` commit, never mixed with a feature or a fix. The
+Google Cloud specific Java files are deliberately excluded from the backend check.
+
 ## Checking history quality
 
 Each `feat`, `fix` or `refactor` commit should carry the tests that pin it. To see how the history
