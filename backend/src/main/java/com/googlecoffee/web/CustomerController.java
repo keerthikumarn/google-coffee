@@ -5,10 +5,8 @@ import com.googlecoffee.live.LiveOrderHub;
 import com.googlecoffee.live.OrderView;
 import com.googlecoffee.model.Feedback;
 import com.googlecoffee.model.MenuItem;
-import com.googlecoffee.model.Order;
-import com.googlecoffee.model.OrderStatus;
 import com.googlecoffee.model.Session;
-import com.googlecoffee.service.EtaCalculator;
+import com.googlecoffee.service.CafeStatus;
 import com.googlecoffee.service.FeedbackService;
 import com.googlecoffee.service.MenuService;
 import com.googlecoffee.service.OrderService;
@@ -64,8 +62,6 @@ public class CustomerController {
             @Min(1) @Max(5) int rating,
             @Size(max = 300) String comment) {}
 
-    public record CafeStatus(int activeBaristas, int ordersInQueue, int waitMinutesForCoffee, String busyLevel) {}
-
     private final MenuService menu;
     private final SessionService sessions;
     private final OrderService orders;
@@ -98,12 +94,7 @@ public class CustomerController {
 
     @GetMapping("/cafe/status")
     public CafeStatus status() {
-        List<Order> active = hub.activeOrders();
-        int inQueue = (int) active.stream()
-                .filter(o -> o.status() == OrderStatus.PLACED || o.status() == OrderStatus.PREPARING).count();
-        int wait = EtaCalculator.estimateNew(active, settings.activeBaristas(), 4);
-        String level = wait <= 5 ? "Quiet" : wait <= 12 ? "Steady" : "Busy";
-        return new CafeStatus(settings.activeBaristas(), inQueue, wait, level);
+        return CafeStatus.of(hub.activeOrders(), settings.activeBaristas());
     }
 
     @PostMapping("/sessions")

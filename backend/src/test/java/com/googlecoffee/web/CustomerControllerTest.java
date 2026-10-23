@@ -11,6 +11,8 @@ import com.googlecoffee.service.OrderService;
 import com.googlecoffee.service.SessionService;
 import com.googlecoffee.service.SettingsService;
 import com.googlecoffee.support.Fixtures;
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -20,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -37,6 +40,22 @@ class CustomerControllerTest {
     @MockitoBean BaristaService barista;
     @MockitoBean LiveOrderHub hub;
     @MockitoBean SettingsService settings;
+
+    @Test
+    void cafeStatusReportsTheQueueAndHowBusyTheBarIs() throws Exception {
+        when(hub.activeOrders()).thenReturn(List.of(
+                Fixtures.order("a", "s1", OrderStatus.PLACED, 6, 1),
+                Fixtures.order("b", "s2", OrderStatus.READY, 3, 2)));
+        when(settings.activeBaristas()).thenReturn(1);
+
+        // one open order of 6 minutes + the standard 4-minute coffee, one barista = 10 minutes
+        mvc.perform(get("/api/cafe/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeBaristas").value(1))
+                .andExpect(jsonPath("$.ordersInQueue").value(1))
+                .andExpect(jsonPath("$.waitMinutesForCoffee").value(10))
+                .andExpect(jsonPath("$.busyLevel").value("Steady"));
+    }
 
     @Test
     void cancelReturnsTheCancelledOrder() throws Exception {
