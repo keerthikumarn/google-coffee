@@ -233,6 +233,53 @@ class OrderServiceTest {
         assertApiError(HttpStatus.NOT_FOUND, () -> service.updateStatus("missing", OrderStatus.PREPARING));
     }
 
+    // ---------- guest cancellation ----------
+
+    @Test
+    void guestCanCancelTheirOwnOrderWhileItIsStillPlaced() {
+        Order order = service.place(guest.id(), List.of(line("espresso", 1))).order();
+
+        Order cancelled = service.cancelForSession(order.id(), guest.id());
+
+        assertEquals(OrderStatus.CANCELLED, cancelled.status());
+        assertEquals(OrderStatus.CANCELLED, service.get(order.id()).status());
+    }
+
+    @Test
+    void guestCannotCancelAnotherGuestsOrder() {
+        Order order = service.place(guest.id(), List.of(line("espresso", 1))).order();
+        Session other = sessions.create("Ravi", "2", List.of());
+
+        assertApiError(HttpStatus.NOT_FOUND, () -> service.cancelForSession(order.id(), other.id()));
+        assertEquals(OrderStatus.PLACED, service.get(order.id()).status());
+    }
+
+    @Test
+    void cancellingAnUnknownOrderIsNotFound() {
+        assertApiError(HttpStatus.NOT_FOUND, () -> service.cancelForSession("missing", guest.id()));
+    }
+
+    @Test
+    void guestCannotCancelOnceTheBarHasStarted() {
+        for (OrderStatus status : List.of(OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COLLECTED)) {
+            Order order = service.place(guest.id(), List.of(line("espresso", 1))).order();
+            orders.updateStatus(order.id(), OrderStatus.PREPARING);
+            if (status != OrderStatus.PREPARING) orders.updateStatus(order.id(), OrderStatus.READY);
+            if (status == OrderStatus.COLLECTED) orders.updateStatus(order.id(), OrderStatus.COLLECTED);
+
+            assertApiError(HttpStatus.CONFLICT, () -> service.cancelForSession(order.id(), guest.id()));
+            assertEquals(status, service.get(order.id()).status());
+        }
+    }
+
+    @Test
+    void cancellingTwiceIsAConflictNotASilentSuccess() {
+        Order order = service.place(guest.id(), List.of(line("espresso", 1))).order();
+        service.cancelForSession(order.id(), guest.id());
+
+        assertApiError(HttpStatus.CONFLICT, () -> service.cancelForSession(order.id(), guest.id()));
+    }
+
     // ---------- estimates ----------
 
     @Test

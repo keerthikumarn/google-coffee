@@ -9,6 +9,7 @@ import com.googlecoffee.model.OrderStatus;
 import com.googlecoffee.model.Session;
 import com.googlecoffee.port.OrderStore;
 import com.googlecoffee.web.ApiException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -101,6 +102,22 @@ public class OrderService {
         Order o = get(orderId);
         if (!o.sessionId().equals(sessionId)) throw ApiException.notFound("Order");
         return o;
+    }
+
+    /**
+     * A guest may cancel their own order until the bar starts on it. Staff can still cancel later
+     * through {@link #updateStatus}. A staff move landing between the check and the update can
+     * let one cancellation through a moment after the bar started; the store has no "only if
+     * still PLACED" operation to prevent that.
+     */
+    public Order cancelForSession(String orderId, String sessionId) {
+        Order order = getForSession(orderId, sessionId);
+        if (order.status() != OrderStatus.PLACED) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "This order is already " + order.status().name().toLowerCase()
+                            + ", so it can't be cancelled here. Please ask a barista.");
+        }
+        return store.updateStatus(orderId, OrderStatus.CANCELLED);
     }
 
     public List<Order> historyFor(String sessionId) {

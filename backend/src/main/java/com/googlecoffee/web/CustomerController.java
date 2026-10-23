@@ -150,6 +150,11 @@ public class CustomerController {
         return hub.viewOf(orders.getForSession(id, sessionId));
     }
 
+    @PostMapping("/orders/{id}/cancel")
+    public OrderView cancel(@PathVariable String id, @RequestParam String sessionId) {
+        return hub.viewOf(orders.cancelForSession(id, sessionId));
+    }
+
     @GetMapping(value = "/orders/{id}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@PathVariable String id, @RequestParam String sessionId) {
         return hub.subscribeCustomer(orders.getForSession(id, sessionId));
