@@ -71,6 +71,15 @@ Google Cloud specific Java files are deliberately excluded from the backend chec
 After a style-only commit, add its hash to `.git-blame-ignore-revs` so `git blame` skips it (GitHub
 does this automatically; locally run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once).
 
+## Dependency updates
+
+Dependabot (`.github/dependabot.yml`) opens a pull request each Monday for outdated Maven, npm, GitHub
+Actions and Docker dependencies. Minor and patch updates arrive as one grouped PR per ecosystem; a major
+update gets its own PR. Nothing merges automatically: wait for the CI checks, read the release notes for
+anything major, then merge or close. A few dependencies are ignored on purpose (the Google Cloud libraries
+while the `gcp` profile is untouched, and ESLint 10 until `eslint-plugin-react` supports it); the reason is
+written next to each rule in the config.
+
 ## Checking history quality
 
 Each `feat`, `fix` or `refactor` commit should carry the tests that pin it. To see how the history

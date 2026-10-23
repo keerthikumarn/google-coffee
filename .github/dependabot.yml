@@ -1,0 +1,74 @@
+# Weekly dependency update PRs. Each one runs the normal CI, so a green check means the upgrade is safe to
+# merge. Nothing is merged automatically. Minor and patch updates are grouped into one PR per ecosystem to
+# keep the noise down; major updates get their own PR so they can be reviewed on their own.
+version: 2
+
+updates:
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      backend-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Google Cloud libraries belong to the optional gcp profile, which is not being changed on this branch.
+      - dependency-name: 'com.google.cloud:*'
+      - dependency-name: 'com.google.genai:*'
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    groups:
+      frontend-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # eslint-plugin-react does not support ESLint 10 yet (its peer range stops at 9).
+      - dependency-name: eslint
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@eslint/js'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Kolkata
+    commit-message:
+      prefix: 'ci(deps)'
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Kolkata
+    commit-message:
+      prefix: 'chore(deps)'
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Kolkata
+    commit-message:
+      prefix: 'chore(deps)'
