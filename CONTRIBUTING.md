@@ -52,6 +52,20 @@ cd frontend && npm test
 
 Both suites must pass before you push. GitHub Actions runs them (plus the production image build) on every push and pull request. The backend tests need Docker for the PostgreSQL adapter tests; see the README for details.
 
+## Checking history quality
+
+Each `feat`, `fix` or `refactor` commit should carry the tests that pin it. To see how the history
+looks:
+
+```bash
+git log --oneline --stat          # the raw view: do src/main and src/test change together?
+./scripts/history-check.sh        # a summary, plus feat/fix/refactor commits that have no test
+```
+
+The script only reports; nothing blocks a commit. Docs, CI and chore commits touch no tests, so
+the overall ratio is not the goal. A `fix` with nothing testable (for example a renamed config
+file) is fine; say so in the commit body.
+
 ## Pull requests
 
 Use the PR template. Describe the one change, link the tests that prove it, and
