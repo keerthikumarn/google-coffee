@@ -10,9 +10,9 @@ import java.util.Optional;
  * Must never throw: return Optional.empty() on any failure so callers can fall back.
  */
 public interface AiClient {
- 
+
     Optional<JsonNode> generateJson(String prompt, float temperature);
- 
+
     /** Human-readable provider name, shown on the staff dashboard. */
     String displayName();
 }
