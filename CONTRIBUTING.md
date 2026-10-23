@@ -68,6 +68,9 @@ cd frontend && npm run lint && npm run format:check
 Keep style-only changes in their own `style` commit, never mixed with a feature or a fix. The
 Google Cloud specific Java files are deliberately excluded from the backend check.
 
+After a style-only commit, add its hash to `.git-blame-ignore-revs` so `git blame` skips it (GitHub
+does this automatically; locally run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once).
+
 ## Checking history quality
 
 Each `feat`, `fix` or `refactor` commit should carry the tests that pin it. To see how the history
