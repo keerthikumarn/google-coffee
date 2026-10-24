@@ -56,7 +56,7 @@ The backend rules are deliberately small (no trailing whitespace, a final newlin
 
 A passing run ends with `BUILD SUCCESS` for the backend and `Tests … passed` for the frontend. The first backend run downloads Maven, the dependencies and the `postgres:17-alpine` image, so allow a few minutes; later runs are much quicker.
 
-**What the tests cover.** Backend: services run against in-memory fakes of the ports (orders, menu, sessions, settings, wait-time maths, dietary rules, staff auth) and the PostgreSQL adapters run against a real PostgreSQL with the production migrations (including concurrent status changes). Frontend: the API client, the guest welcome form, menu, cart and order tracker (including its live-update fallbacks and feedback), and the staff login and dashboard.
+**What the tests cover.** Backend: services run against in-memory fakes of the ports (orders, menu, sessions, settings, wait-time maths, dietary rules, staff auth) and the PostgreSQL adapters run against a real PostgreSQL with the production migrations (including concurrent status changes). The whole application also starts against a real PostgreSQL in one test, which checks the API, the seeded menu and the locked-down metrics endpoint. Frontend: the API client, the guest welcome form, menu, cart and order tracker (including its live-update fallbacks and feedback), and the staff login and dashboard.
 
 **No Docker?** The PostgreSQL tests then **fail** with a message saying so; they are never skipped, so a green build always means they ran. To run only the Docker-free tests: `./mvnw test -Dtest='!Pg*Test'`.
 
@@ -119,6 +119,47 @@ It prints a random `https://….trycloudflare.com` URL. Quick tunnels buffer Ser
 | Reset all local data | `docker compose down -v` |
 
 
+
+### Metrics (Prometheus)
+
+The app exposes health and Prometheus metrics on a **separate management port, 8081** (not the public port 8080), so they are never reachable through the Cloudflare tunnel. Only `health` and `prometheus` are exposed.
+
+```bash
+curl http://localhost:8081/actuator/health
+curl http://localhost:8081/actuator/prometheus
+```
+
+With `docker compose --profile app up` the port is not published to your machine; look from inside the container with `docker compose exec app wget -qO- http://localhost:8081/actuator/prometheus`. Change the port with `MANAGEMENT_PORT` in `.env`.
+
+| Metric | What it tells you |
+|---|---|
+| `ai_requests_total{provider,outcome}` | AI calls by outcome: `success`, `empty` (blank answer) or `error` (down, slow, HTTP error, not JSON) |
+| `ai_request_duration_seconds_{count,sum,max}{provider}` | How long AI calls take |
+| `ai_fallbacks_total{feature,reason}` | Guests who got rule-based answers instead of the model's: `chat`, `recommendations` or `pulse`, because the model was `unavailable` or every pick was `rejected` |
+| `brew_suggestions_dropped_total{reason}` | Suggestions the grounding rules threw out: `unknown` item, `duplicate` or `preference` (breaks a dietary rule) |
+| `orders_feed_errors_total{stage}` | Live order feed failures: `load` (reading active orders) or `push` (sending an update) |
+| `sse_subscribers{stream}` | Open live streams: `customer` (order trackers) and `staff` (boards) |
+| `sse_send_failures_total{event}` | Writes to a stream that had gone away: `order`, `board` or `heartbeat` |
+
+Actuator also provides JVM memory and GC, the database connection pool (`hikaricp_*`) and per-endpoint request timings (`http_server_requests_seconds_*`).
+
+Useful questions to ask of them:
+
+```
+rate(ai_requests_total{outcome="error"}[5m]) / rate(ai_requests_total[5m])     # is the model failing?
+sum by (reason) (increase(brew_suggestions_dropped_total[1h]))                  # how often is the model overruled?
+sum(rate(http_server_requests_seconds_sum[5m])) / sum(rate(http_server_requests_seconds_count[5m]))   # average request time
+```
+
+A minimal Prometheus scrape config for a Prometheus running in Docker on the same machine:
+
+```yaml
+scrape_configs:
+  - job_name: google-coffee
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8081']
+```
 
 ## Features
 
