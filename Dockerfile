@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---------- 2. Build the Spring Boot jar (UI bundled as static files) ----------
-FROM maven:3.9-eclipse-temurin-21 AS api
+FROM maven:3.9-eclipse-temurin-26 AS api
 WORKDIR /app
 COPY backend/pom.xml ./
 RUN mvn -q -B dependency:go-offline
