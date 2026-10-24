@@ -89,7 +89,14 @@ cp .env.example .env        # set STAFF_PIN and STAFF_TOKEN_SECRET; keep SPRING_
 - Guests: http://localhost:8080/?table=7
 - Staff: http://localhost:8080/staff
 
-Everything in containers instead (Ollama stays native): `docker compose --profile app up -d --build`
+Everything in containers instead (Ollama stays native on your machine, the app reaches it at `host.docker.internal:11434`):
+
+```bash
+cp .env.example .env                        # once
+docker compose --profile app up -d --build  # builds the image, starts Postgres and the app
+```
+
+Then open http://localhost:8080/?table=7 (staff: http://localhost:8080/staff, PIN from `.env`). No Google Cloud account or `gcloud` login is needed. Stop with `docker compose --profile app down` (add `-v` to delete the database too).
 
 ### Share it publicly with Cloudflare Tunnel
 
