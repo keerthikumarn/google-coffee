@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.googlecoffee.ai.JsonText;
 import com.googlecoffee.config.AppProperties;
 import com.googlecoffee.port.AiClient;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -19,6 +21,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Local LLM via Ollama's /api/chat with JSON mode. Same contract as the Gemini client:
@@ -30,11 +33,17 @@ public class OllamaClient implements AiClient {
 
     private static final Logger log = LoggerFactory.getLogger(OllamaClient.class);
 
+    private static final String PROVIDER = "ollama";
+    private static final String OUTCOME_SUCCESS = "success";
+    private static final String OUTCOME_EMPTY = "empty";
+    private static final String OUTCOME_ERROR = "error";
+
     private final RestClient http;
     private final ObjectMapper mapper;
     private final AppProperties.Ollama cfg;
+    private final MeterRegistry metrics;
 
-    public OllamaClient(RestClient.Builder builder, ObjectMapper mapper, AppProperties props) {
+    public OllamaClient(RestClient.Builder builder, ObjectMapper mapper, AppProperties props, MeterRegistry metrics) {
         this.cfg = props.ollama();
         if (cfg == null || cfg.baseUrl() == null || cfg.model() == null) {
             throw new IllegalStateException("app.ollama.base-url and app.ollama.model must be set for the 'local' profile");
@@ -44,6 +53,7 @@ public class OllamaClient implements AiClient {
         factory.setReadTimeout(Duration.ofSeconds(Math.max(10, cfg.timeoutSeconds())));
         this.http = builder.baseUrl(cfg.baseUrl()).requestFactory(factory).build();
         this.mapper = mapper;
+        this.metrics = metrics;
     }
 
     /** Friendly startup check so a missing model or stopped Ollama is obvious in the log. */
@@ -79,6 +89,8 @@ public class OllamaClient implements AiClient {
                 "messages", List.of(Map.of("role", "user", "content", prompt)),
                 "options", Map.of("temperature", temperature, "num_ctx", 8192));
         long start = System.currentTimeMillis();
+        long startNanos = System.nanoTime();
+        String outcome = OUTCOME_ERROR;
         try {
             JsonNode response = http.post()
                     .uri("/api/chat")
@@ -89,15 +101,26 @@ public class OllamaClient implements AiClient {
             String text = response == null ? null : response.path("message").path("content").asText(null);
             if (text == null || text.isBlank()) {
                 log.warn("Ollama returned an empty response");
+                outcome = OUTCOME_EMPTY;
                 return Optional.empty();
             }
             JsonNode node = mapper.readTree(JsonText.stripFences(text));
             log.debug("Ollama call took {} ms", System.currentTimeMillis() - start);
+            outcome = OUTCOME_SUCCESS;
             return Optional.of(node);
         } catch (Exception e) {
             log.warn("Ollama call failed after {} ms: {}", System.currentTimeMillis() - start, e.toString());
             return Optional.empty();
+        } finally {
+            record(outcome, System.nanoTime() - startNanos);
         }
+    }
+
+    /** Counts the call by outcome (success, empty answer, error) and times it, whatever the outcome. */
+    private void record(String outcome, long nanos) {
+        metrics.counter("ai.requests", "provider", PROVIDER, "outcome", outcome).increment();
+        Timer.builder("ai.request.duration").tag("provider", PROVIDER).register(metrics)
+                .record(nanos, TimeUnit.NANOSECONDS);
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.googlecoffee.config.AppProperties;
 import com.sun.net.httpserver.HttpExchange;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +33,7 @@ class OllamaClientTest {
 
     private record Received(String method, String path, String contentType, String body) {}
 
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private HttpServer server;
     private final List<Received> requests = Collections.synchronizedList(new ArrayList<>());
     private int chatStatus = 200;
@@ -86,7 +88,7 @@ class OllamaClientTest {
     }
 
     private OllamaClient client() {
-        return new OllamaClient(RestClient.builder(), MAPPER, props(new AppProperties.Ollama(baseUrl(), "llama3.2", 10)));
+        return new OllamaClient(RestClient.builder(), MAPPER, props(new AppProperties.Ollama(baseUrl(), "llama3.2", 10)), registry);
     }
 
     // ---------- generateJson ----------
@@ -162,7 +164,7 @@ class OllamaClientTest {
     @Test
     void anUnreachableOllamaMeansNoAnswerNotAnException() {
         OllamaClient unreachable = new OllamaClient(RestClient.builder(), MAPPER,
-                props(new AppProperties.Ollama("http://127.0.0.1:1", "llama3.2", 10)));
+                props(new AppProperties.Ollama("http://127.0.0.1:1", "llama3.2", 10)), registry);
 
         assertTrue(assertDoesNotThrow(() -> unreachable.generateJson("hi", 0.2f)).isEmpty());
     }
@@ -170,6 +172,74 @@ class OllamaClientTest {
     @Test
     void namesTheModelOnTheStaffDashboard() {
         assertEquals("Ollama (llama3.2)", client().displayName());
+    }
+
+    // ---------- metrics ----------
+
+    private double requests(String outcome) {
+        var counter = registry.find("ai.requests").tags("provider", "ollama", "outcome", outcome).counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    private long timedCalls() {
+        var timer = registry.find("ai.request.duration").tag("provider", "ollama").timer();
+        return timer == null ? 0 : timer.count();
+    }
+
+    @Test
+    void aGoodAnswerIsCountedAsSuccessAndTimed() {
+        client().generateJson("hi", 0.2f);
+
+        assertEquals(1, requests("success"));
+        assertEquals(0, requests("empty") + requests("error"));
+        assertEquals(1, timedCalls());
+    }
+
+    @Test
+    void anEmptyAnswerIsCountedAsEmpty() {
+        chatBody = chatReply("   ");
+        client().generateJson("hi", 0.2f);
+
+        chatBody = "{}";
+        client().generateJson("hi", 0.2f);
+
+        assertEquals(2, requests("empty"));
+        assertEquals(0, requests("success") + requests("error"));
+    }
+
+    @Test
+    void textThatIsNotJsonAnHttpErrorAndAnUnreachableOllamaAreAllCountedAsErrors() {
+        chatBody = chatReply("only prose");
+        client().generateJson("hi", 0.2f);
+
+        chatStatus = 500;
+        client().generateJson("hi", 0.2f);
+
+        new OllamaClient(RestClient.builder(), MAPPER,
+                        props(new AppProperties.Ollama("http://127.0.0.1:1", "llama3.2", 10)), registry)
+                .generateJson("hi", 0.2f);
+
+        assertEquals(3, requests("error"));
+        assertEquals(0, requests("success") + requests("empty"));
+    }
+
+    @Test
+    void everyCallIsTimedWhateverItsOutcome() {
+        client().generateJson("hi", 0.2f);
+        chatBody = chatReply("");
+        client().generateJson("hi", 0.2f);
+        chatStatus = 500;
+        client().generateJson("hi", 0.2f);
+
+        assertEquals(3, timedCalls());
+    }
+
+    @Test
+    void theStartupCheckIsNotCountedAsAnAiRequest() {
+        client().checkModel();
+
+        assertEquals(0, requests("success") + requests("empty") + requests("error"));
+        assertEquals(0, timedCalls());
     }
 
     // ---------- configuration ----------
@@ -181,7 +251,7 @@ class OllamaClientTest {
                 new AppProperties.Ollama(null, "llama3.2", 10),
                 new AppProperties.Ollama(baseUrl(), null, 10)}) {
             IllegalStateException e = assertThrows(IllegalStateException.class,
-                    () -> new OllamaClient(RestClient.builder(), MAPPER, props(bad)));
+                    () -> new OllamaClient(RestClient.builder(), MAPPER, props(bad), registry));
             assertTrue(e.getMessage().contains("app.ollama.base-url"));
         }
     }
@@ -216,7 +286,7 @@ class OllamaClientTest {
         assertDoesNotThrow(client::checkModel);                       // server error
 
         OllamaClient unreachable = new OllamaClient(RestClient.builder(), MAPPER,
-                props(new AppProperties.Ollama("http://127.0.0.1:1", "llama3.2", 10)));
+                props(new AppProperties.Ollama("http://127.0.0.1:1", "llama3.2", 10)), registry);
         assertDoesNotThrow(unreachable::checkModel);                  // Ollama not running
     }
 }
