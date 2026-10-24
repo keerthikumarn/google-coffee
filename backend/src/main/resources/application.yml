@@ -28,6 +28,16 @@ app:
   gemini-location: ${GEMINI_LOCATION:us-central1}
   gemini-timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:25}
 
+# Operational endpoints live on their own port so they are not reachable through the public tunnel on
+# the main port. Only health and Prometheus metrics are exposed.
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8081}
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
 logging:
   level:
     com.googlecoffee: INFO
