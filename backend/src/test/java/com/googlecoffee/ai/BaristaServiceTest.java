@@ -13,6 +13,7 @@ import com.googlecoffee.model.Session;
 import com.googlecoffee.service.MenuService;
 import com.googlecoffee.support.FakeAiClient;
 import com.googlecoffee.support.InMemoryMenuStore;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -42,6 +43,7 @@ class BaristaServiceTest {
     private final MenuItem herbalTea = item("herbal-tea", "Not coffee", 180, false, "hot", "vegan", "caffeine-free");
     private final MenuItem brownie = item("brownie", "Bakery & bites", 200, true);
 
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private FakeAiClient ai;
     private BaristaService service;
 
@@ -51,7 +53,7 @@ class BaristaServiceTest {
         MenuService menu = new MenuService(
                 new InMemoryMenuStore(espresso, latte, oatLatte, coldBrew, herbalTea, brownie), MAPPER);
         menu.load();
-        service = new BaristaService(ai, menu);
+        service = new BaristaService(ai, menu, registry);
     }
 
     private static Session guest(String... prefs) {
@@ -364,5 +366,82 @@ class BaristaServiceTest {
 
         service.recommendations(guest(), List.of());
         assertTrue(ai.lastPrompt().contains("Already ordered: nothing yet"));
+    }
+
+    // ---------- metrics: how often the model is overruled or unavailable ----------
+
+    private double dropped(String reason) {
+        var counter = registry.find("brew.suggestions.dropped").tag("reason", reason).counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    private double fallbacks(String feature, String reason) {
+        var counter = registry.find("ai.fallbacks").tags("feature", feature, "reason", reason).counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    @Test
+    void everyKindOfRejectedSuggestionIsCountedByReason() {
+        // unknown item, a repeat, and a non-vegan item for a vegan guest; "espresso" and "oat-latte" pass
+        JsonNode picks = json(suggestions("unicorn", "espresso", "espresso", "latte", "oat-latte", "ghost"));
+
+        service.groundSuggestions(picks, List.of("vegan"));
+
+        assertEquals(2, dropped("unknown"));
+        assertEquals(1, dropped("duplicate"));
+        assertEquals(1, dropped("preference"));
+    }
+
+    @Test
+    void suggestionsThatAreAllAcceptedCountAsNothingDropped() {
+        service.groundSuggestions(json(suggestions("espresso", "oat-latte")), List.of("vegan"));
+
+        assertEquals(0, dropped("unknown") + dropped("duplicate") + dropped("preference"));
+    }
+
+    @Test
+    void suggestionsBeyondTheLimitOfThreeAreNotCountedAsRejected() {
+        service.groundSuggestions(json(suggestions("espresso", "latte", "oat-latte", "cold-brew", "brownie")), List.of());
+
+        assertEquals(0, dropped("unknown") + dropped("duplicate") + dropped("preference"));
+    }
+
+    @Test
+    void chatFallbacksAreCountedWhenTheModelIsUnavailableOrHasNoReply() {
+        ai.unavailable();
+        service.chat(guest(), List.of(), "hi");
+        ai.answering("{\"suggestions\":[]}");
+        service.chat(guest(), List.of(), "hi again");
+
+        assertEquals(2, fallbacks("chat", "unavailable"));
+    }
+
+    @Test
+    void aNormalChatReplyIsNotAFallback() {
+        ai.answering("{\"reply\":\"hello\",\"suggestions\":[]}");
+
+        service.chat(guest(), List.of(), "hi");
+
+        assertEquals(0, fallbacks("chat", "unavailable"));
+    }
+
+    @Test
+    void recommendationFallbacksSeparateAnUnavailableModelFromRejectedPicks() {
+        ai.unavailable();
+        service.recommendations(guest(), List.of());
+        ai.answering("{\"headline\":\"x\",\"picks\":" + suggestions("unicorn") + "}");
+        service.recommendations(guest(), List.of());
+
+        assertEquals(1, fallbacks("recommendations", "unavailable"));
+        assertEquals(1, fallbacks("recommendations", "rejected"));
+    }
+
+    @Test
+    void goodRecommendationsAreNotAFallback() {
+        ai.answering("{\"headline\":\"x\",\"picks\":" + suggestions("latte") + "}");
+
+        service.recommendations(guest(), List.of());
+
+        assertEquals(0, fallbacks("recommendations", "unavailable") + fallbacks("recommendations", "rejected"));
     }
 }

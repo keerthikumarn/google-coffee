@@ -1,6 +1,7 @@
 package com.googlecoffee.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.micrometer.core.instrument.MeterRegistry;
 import com.googlecoffee.port.AiClient;
 import com.googlecoffee.model.Feedback;
 import com.googlecoffee.service.FeedbackService;
@@ -29,11 +30,13 @@ public class PulseService {
 
     private final FeedbackService feedback;
     private final AiClient ai;
+    private final MeterRegistry metrics;
     private volatile Pulse cached;
 
-    public PulseService(FeedbackService feedback, AiClient ai) {
+    public PulseService(FeedbackService feedback, AiClient ai, MeterRegistry metrics) {
         this.feedback = feedback;
         this.ai = ai;
+        this.metrics = metrics;
     }
 
     public synchronized Pulse current(boolean forceRefresh) {
@@ -76,6 +79,7 @@ public class PulseService {
 
         Optional<JsonNode> json = ai.generateJson(prompt, 0.2f);
         if (json.isEmpty()) {
+            metrics.counter("ai.fallbacks", "feature", "pulse", "reason", "unavailable").increment();
             cached = new Pulse(items.size(), round1(avg), ratingScore, moodFor(ratingScore),
                     "AI summary unavailable right now. Showing the rating average.",
                     List.of(), List.of(), latest, false, ai.displayName(), now);

@@ -8,6 +8,7 @@ import com.googlecoffee.support.FakeAiClient;
 import com.googlecoffee.support.InMemoryFeedbackStore;
 import com.googlecoffee.support.InMemoryOrderStore;
 import com.googlecoffee.support.InMemorySessionStore;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,7 @@ class PulseServiceTest {
     private static final long MINUTE = 60_000L;
 
     private InMemoryFeedbackStore store;
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private FakeAiClient ai;
     private PulseService service;
     private int next;
@@ -39,7 +41,7 @@ class PulseServiceTest {
     private void startWithEmptyFeedback() {
         store = new InMemoryFeedbackStore();
         FeedbackService feedback = new FeedbackService(store, new SessionService(new InMemorySessionStore()), new InMemoryOrderStore());
-        service = new PulseService(feedback, ai);
+        service = new PulseService(feedback, ai, registry);
     }
 
     private void feedback(int rating, String comment, long minutesAgo) {
@@ -259,5 +261,50 @@ class PulseServiceTest {
 
         assertEquals(2, ai.calls());
         assertEquals(20, refreshed.sentimentScore());
+    }
+
+    // ---------- metrics ----------
+
+    private double pulseFallbacks() {
+        var counter = registry.find("ai.fallbacks").tags("feature", "pulse", "reason", "unavailable").counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    @Test
+    void anUnavailableModelIsCountedAsAPulseFallback() {
+        feedback(4);
+        ai.unavailable();
+
+        service.current(true);
+
+        assertEquals(1, pulseFallbacks());
+    }
+
+    @Test
+    void aSuccessfulSummaryIsNotAFallback() {
+        feedback(4);
+        ai.answering(answer("\"sentimentScore\": 70"));
+
+        service.current(true);
+
+        assertEquals(0, pulseFallbacks());
+    }
+
+    @Test
+    void withNoFeedbackThereIsNeitherAModelCallNorAFallback() {
+        service.current(true);
+
+        assertEquals(0, pulseFallbacks());
+    }
+
+    @Test
+    void aCachedPulseIsNotCountedAgain() {
+        feedback(4);
+        ai.unavailable();
+
+        service.current(false);
+        service.current(false);
+
+        assertEquals(1, pulseFallbacks());
     }
 }

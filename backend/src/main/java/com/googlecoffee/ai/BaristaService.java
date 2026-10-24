@@ -1,6 +1,7 @@
 package com.googlecoffee.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.micrometer.core.instrument.MeterRegistry;
 import com.googlecoffee.port.AiClient;
 import com.googlecoffee.model.MenuItem;
 import com.googlecoffee.model.Order;
@@ -37,10 +38,12 @@ public class BaristaService {
 
     private final AiClient ai;
     private final MenuService menu;
+    private final MeterRegistry metrics;
 
-    public BaristaService(AiClient ai, MenuService menu) {
+    public BaristaService(AiClient ai, MenuService menu, MeterRegistry metrics) {
         this.ai = ai;
         this.menu = menu;
+        this.metrics = metrics;
     }
 
     public ChatReply chat(Session guest, List<ChatTurn> history, String message) {
@@ -79,6 +82,7 @@ public class BaristaService {
 
         Optional<JsonNode> json = ai.generateJson(prompt, 0.6f);
         if (json.isEmpty() || !json.get().hasNonNull("reply")) {
+            fellBack("chat", "unavailable");
             return new ChatReply(
                     "Brew is taking a quick breather. Here are a few guest favourites that match your preferences.",
                     fallbackPicks(guest.preferences()), false);
@@ -109,10 +113,14 @@ public class BaristaService {
 
         Optional<JsonNode> json = ai.generateJson(prompt, 0.8f);
         if (json.isEmpty()) {
+            fellBack("recommendations", "unavailable");
             return new Picks("Guest favourites for you", fallbackPicks(guest.preferences()), false);
         }
         List<Suggestion> picks = groundSuggestions(json.get().path("picks"), guest.preferences());
-        if (picks.isEmpty()) picks = fallbackPicks(guest.preferences());
+        if (picks.isEmpty()) {
+            fellBack("recommendations", "rejected");
+            picks = fallbackPicks(guest.preferences());
+        }
         String headline = truncate(json.get().path("headline").asText("Picked for you"), 60);
         return new Picks(headline, picks, true);
     }
@@ -125,11 +133,32 @@ public class BaristaService {
         for (JsonNode n : array) {
             String id = n.path("itemId").asText("");
             MenuItem item = menu.find(id);
-            if (item == null || !seen.add(id) || PreferenceRules.violates(item, prefs)) continue;
+            if (item == null) {
+                dropped("unknown");
+                continue;
+            }
+            if (!seen.add(id)) {
+                dropped("duplicate");
+                continue;
+            }
+            if (PreferenceRules.violates(item, prefs)) {
+                dropped("preference");
+                continue;
+            }
             out.add(new Suggestion(item, truncate(n.path("reason").asText(""), 90)));
             if (out.size() == MAX_SUGGESTIONS) break;
         }
         return out;
+    }
+
+    /** The model suggested something the server refused: how often that happens is a measure of the model. */
+    private void dropped(String reason) {
+        metrics.counter("brew.suggestions.dropped", "reason", reason).increment();
+    }
+
+    /** The guest got rule-based picks instead of the model's, because it was unavailable or all its picks were rejected. */
+    private void fellBack(String feature, String reason) {
+        metrics.counter("ai.fallbacks", "feature", feature, "reason", reason).increment();
     }
 
     List<Suggestion> fallbackPicks(List<String> prefs) {
