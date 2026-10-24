@@ -16,7 +16,7 @@ COPY --from=web /web/dist ./src/main/resources/static
 RUN mvn -q -B package -DskipTests
 
 # ---------- 3. Slim runtime ----------
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN useradd --system --create-home app
 WORKDIR /app
 COPY --from=api /app/target/google-coffee.jar app.jar
