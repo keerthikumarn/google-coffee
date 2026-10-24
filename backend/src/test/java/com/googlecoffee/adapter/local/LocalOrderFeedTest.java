@@ -3,6 +3,7 @@ package com.googlecoffee.adapter.local;
 import com.googlecoffee.model.Order;
 import com.googlecoffee.model.OrderStatus;
 import com.googlecoffee.port.OrderStore;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -28,11 +29,25 @@ class LocalOrderFeedTest {
         public Order updateStatus(String id, OrderStatus next) { throw new UnsupportedOperationException(); }
     }
 
+    /** A database that cannot be read, as when Postgres is down. */
+    private static final class BrokenStore implements OrderStore {
+        public void insert(Order o) {}
+        public Optional<Order> find(String id) { return Optional.empty(); }
+        public List<Order> findBySession(String s, int l) { return List.of(); }
+        public List<Order> findActive() { throw new IllegalStateException("database down"); }
+        public Order updateStatus(String id, OrderStatus next) { throw new UnsupportedOperationException(); }
+    }
+
+    private static double errors(SimpleMeterRegistry registry, String stage) {
+        var counter = registry.find("orders.feed.errors").tag("stage", stage).counter();
+        return counter == null ? 0 : counter.count();
+    }
+
     @Test
     void pushesActiveSetOnStartAndOnEveryChange() {
         FakeStore store = new FakeStore();
         store.insert(order("a", OrderStatus.PLACED));
-        LocalOrderFeed feed = new LocalOrderFeed(store);
+        LocalOrderFeed feed = new LocalOrderFeed(store, new SimpleMeterRegistry());
         List<List<Order>> pushes = new ArrayList<>();
         List<Order> finals = new ArrayList<>();
 
@@ -49,12 +64,46 @@ class LocalOrderFeedTest {
     @Test
     void reportsOrdersThatLeaveTheActiveSet() {
         FakeStore store = new FakeStore();
-        LocalOrderFeed feed = new LocalOrderFeed(store);
+        LocalOrderFeed feed = new LocalOrderFeed(store, new SimpleMeterRegistry());
         List<Order> finals = new ArrayList<>();
         feed.start(list -> {}, finals::add);
 
         feed.onOrderChanged(new OrderChangedEvent(order("c", OrderStatus.COLLECTED)));
         assertEquals(1, finals.size());
         assertEquals("c", finals.get(0).id());
+    }
+
+    @Test
+    void aFailureLoadingTheActiveOrdersAtStartIsCountedAndDoesNotStopTheApp() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        LocalOrderFeed feed = new LocalOrderFeed(new BrokenStore(), registry);
+
+        feed.start(list -> {}, order -> {});
+
+        assertEquals(1, errors(registry, "load"));
+        assertEquals(0, errors(registry, "push"));
+    }
+
+    @Test
+    void aFailureWhilePushingALiveUpdateIsCountedAndDoesNotFailTheWrite() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        LocalOrderFeed feed = new LocalOrderFeed(new BrokenStore(), registry);
+        feed.start(list -> {}, order -> {});   // counts one load error
+
+        feed.onOrderChanged(new OrderChangedEvent(order("a", OrderStatus.PLACED)));   // must not throw
+
+        assertEquals(1, errors(registry, "push"));
+        assertEquals(1, errors(registry, "load"));
+    }
+
+    @Test
+    void healthyUpdatesCountNoErrors() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        LocalOrderFeed feed = new LocalOrderFeed(new FakeStore(), registry);
+        feed.start(list -> {}, order -> {});
+
+        feed.onOrderChanged(new OrderChangedEvent(order("a", OrderStatus.PLACED)));
+
+        assertEquals(0, errors(registry, "load") + errors(registry, "push"));
     }
 }

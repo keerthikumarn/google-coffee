@@ -4,6 +4,7 @@ import com.googlecoffee.model.Order;
 import com.googlecoffee.model.OrderStatus;
 import com.googlecoffee.port.OrderFeed;
 import com.googlecoffee.port.OrderStore;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
@@ -25,11 +26,13 @@ public class LocalOrderFeed implements OrderFeed {
     private static final Logger log = LoggerFactory.getLogger(LocalOrderFeed.class);
 
     private final OrderStore store;
+    private final MeterRegistry metrics;
     private volatile Consumer<List<Order>> onActive;
     private volatile Consumer<Order> onFinal;
 
-    public LocalOrderFeed(OrderStore store) {
+    public LocalOrderFeed(OrderStore store, MeterRegistry metrics) {
         this.store = store;
+        this.metrics = metrics;
     }
 
     @Override
@@ -40,6 +43,7 @@ public class LocalOrderFeed implements OrderFeed {
             onActive.accept(store.findActive());
         } catch (Exception e) {
             log.error("Could not load active orders from Postgres: {}", e.getMessage());
+            metrics.counter("orders.feed.errors", "stage", "load").increment();
         }
         log.info("Listening for live order changes (in-process events)");
     }
@@ -53,6 +57,7 @@ public class LocalOrderFeed implements OrderFeed {
         } catch (Exception e) {
             // The write already succeeded; never fail the request because a live push failed.
             log.warn("Live update failed for order {}: {}", event.order().id(), e.getMessage());
+            metrics.counter("orders.feed.errors", "stage", "push").increment();
         }
     }
 

@@ -14,6 +14,7 @@ import com.googlecoffee.support.InMemorySessionStore;
 import com.googlecoffee.support.InMemorySettingsStore;
 import com.googlecoffee.support.ManualOrderFeed;
 import com.googlecoffee.web.ApiException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -44,7 +45,7 @@ class OrderServiceTest {
         MenuService menu = new MenuService(new InMemoryMenuStore(Fixtures.espresso(), Fixtures.toast()), new ObjectMapper());
         menu.load();
         sessions = new SessionService(new InMemorySessionStore());
-        LiveOrderHub hub = new LiveOrderHub(feed, settings);
+        LiveOrderHub hub = new LiveOrderHub(feed, settings, new SimpleMeterRegistry());
         hub.start();
         service = new OrderService(orders, menu, sessions, hub, settings);
         guest = sessions.create("Asha", "7", List.of());

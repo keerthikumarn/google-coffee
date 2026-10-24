@@ -6,6 +6,7 @@ import com.googlecoffee.service.SettingsService;
 import com.googlecoffee.support.Fixtures;
 import com.googlecoffee.support.InMemorySettingsStore;
 import com.googlecoffee.support.ManualOrderFeed;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** The live hub: what each guest and the staff board see, and when they are told. */
 class LiveOrderHubTest {
 
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     private ManualOrderFeed feed;
     private SettingsService settings;
     private LiveOrderHub hub;
@@ -46,14 +49,16 @@ class LiveOrderHubTest {
             this.hub = hub;
         }
 
+        volatile SseEmitter lastEmitter;
+
         @GetMapping(value = "/guest/{id}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
         SseEmitter guest(@PathVariable String id) {
-            return hub.subscribeCustomer(orders.get(id));
+            return lastEmitter = hub.subscribeCustomer(orders.get(id));
         }
 
         @GetMapping(value = "/staff", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
         SseEmitter staff() {
-            return hub.subscribeStaff();
+            return lastEmitter = hub.subscribeStaff();
         }
     }
 
@@ -63,7 +68,7 @@ class LiveOrderHubTest {
     void setUp() {
         feed = new ManualOrderFeed();
         settings = new SettingsService(new InMemorySettingsStore(), Fixtures.props(1));
-        hub = new LiveOrderHub(feed, settings);
+        hub = new LiveOrderHub(feed, settings, registry);
         hub.start();
         streams = new Streams(hub);
         mvc = MockMvcBuilders.standaloneSetup(streams).build();
@@ -290,5 +295,89 @@ class LiveOrderHubTest {
         hub.stop();
 
         assertTrue(feed.stopped());
+    }
+
+    // ---------- metrics ----------
+
+    private double subscribers(String stream) {
+        var gauge = registry.find("sse.subscribers").tag("stream", stream).gauge();
+        return gauge == null ? -1 : gauge.value();
+    }
+
+    private double sendFailures(String event) {
+        var counter = registry.find("sse.send.failures").tag("event", event).counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    @Test
+    void theSubscriberGaugesStartAtZero() {
+        assertEquals(0, subscribers("customer"));
+        assertEquals(0, subscribers("staff"));
+    }
+
+    @Test
+    void theGaugesCountOpenStaffAndGuestStreams() throws Exception {
+        openStaffStream();
+        openStaffStream();
+        openGuestStream(order("a", OrderStatus.PLACED, 3, 1));
+        openGuestStream(order("a", OrderStatus.PLACED, 3, 1));   // the same guest on a second device
+        openGuestStream(order("b", OrderStatus.PLACED, 3, 2));
+
+        assertEquals(2, subscribers("staff"));
+        assertEquals(3, subscribers("customer"));
+    }
+
+    @Test
+    void aGuestStreamIsNoLongerCountedOnceTheOrderIsFinished() throws Exception {
+        feed.publishActive(List.of(order("a", OrderStatus.READY, 3, 1)));
+        openGuestStream(order("a", OrderStatus.READY, 3, 1));
+        assertEquals(1, subscribers("customer"));
+
+        feed.publishFinal(order("a", OrderStatus.COLLECTED, 3, 1));
+
+        assertEquals(0, subscribers("customer"));
+    }
+
+    @Test
+    void healthyStreamsRecordNoSendFailures() throws Exception {
+        openStaffStream();
+        openGuestStream(order("a", OrderStatus.PLACED, 3, 1));
+
+        feed.publishActive(List.of(order("a", OrderStatus.PREPARING, 3, 1)));
+        hub.heartbeat();
+
+        assertEquals(0, sendFailures("board") + sendFailures("order") + sendFailures("heartbeat"));
+    }
+
+    @Test
+    void aBrokenStaffStreamIsCountedAsASendFailure() throws Exception {
+        openStaffStream();
+        streams.lastEmitter.completeWithError(new IOException("client went away"));
+        // The container has already dropped the connection, but the hub does not know yet.
+
+        feed.publishActive(List.of(order("a", OrderStatus.PLACED, 3, 1)));
+
+        assertTrue(sendFailures("board") >= 1, "a push to a dead staff stream must be counted");
+    }
+
+    @Test
+    void aBrokenGuestStreamIsCountedAsASendFailure() throws Exception {
+        feed.publishActive(List.of(order("a", OrderStatus.PLACED, 3, 1)));
+        openGuestStream(order("a", OrderStatus.PLACED, 3, 1));
+        streams.lastEmitter.completeWithError(new IOException("client went away"));
+
+        feed.publishActive(List.of(order("a", OrderStatus.PREPARING, 3, 1)));
+
+        assertTrue(sendFailures("order") >= 1, "a push to a dead guest stream must be counted");
+    }
+
+    @Test
+    void aBrokenStreamIsCountedWhenTheHeartbeatFindsIt() throws Exception {
+        openStaffStream();
+        streams.lastEmitter.completeWithError(new IOException("client went away"));
+
+        hub.heartbeat();
+
+        assertTrue(sendFailures("heartbeat") >= 1, "a ping to a dead stream must be counted");
     }
 }

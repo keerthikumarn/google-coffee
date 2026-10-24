@@ -5,6 +5,8 @@ import com.googlecoffee.model.OrderStatus;
 import com.googlecoffee.port.OrderFeed;
 import com.googlecoffee.service.EtaCalculator;
 import com.googlecoffee.service.SettingsService;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -31,15 +33,25 @@ public class LiveOrderHub {
 
     private final OrderFeed feed;
     private final SettingsService settings;
+    private final MeterRegistry metrics;
 
     private volatile Map<String, Order> active = Map.of();
     private final Map<String, CopyOnWriteArrayList<SseEmitter>> customers = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<SseEmitter> staff = new CopyOnWriteArrayList<>();
 
-    public LiveOrderHub(OrderFeed feed, SettingsService settings) {
+    public LiveOrderHub(OrderFeed feed, SettingsService settings, MeterRegistry metrics) {
         this.feed = feed;
         this.settings = settings;
+        this.metrics = metrics;
         settings.onChange(n -> broadcastAll());
+        Gauge.builder("sse.subscribers", () -> customers.values().stream().mapToInt(List::size).sum())
+                .tag("stream", "customer")
+                .description("Open live streams to guests tracking an order")
+                .register(metrics);
+        Gauge.builder("sse.subscribers", staff::size)
+                .tag("stream", "staff")
+                .description("Open live streams to the staff board")
+                .register(metrics);
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -132,8 +144,14 @@ public class LiveOrderHub {
         try {
             emitter.send(SseEmitter.event().name(event).data(data));
         } catch (IOException | IllegalStateException e) {
+            sendFailed(event);
             emitter.completeWithError(e);
         }
+    }
+
+    /** A client went away (or its stream broke) while we were writing to it. */
+    private void sendFailed(String event) {
+        metrics.counter("sse.send.failures", "event", event).increment();
     }
 
     @Scheduled(fixedRate = 20_000)
@@ -144,6 +162,7 @@ public class LiveOrderHub {
             try {
                 e.send(SseEmitter.event().comment("ping"));
             } catch (IOException | IllegalStateException ex) {
+                sendFailed("heartbeat");
                 e.completeWithError(ex);
             }
         }
