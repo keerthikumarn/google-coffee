@@ -1,6 +1,6 @@
 # Thin entry points that run the backend and the frontend from the repository root.
 # They call the same commands the README documents; nothing here is special.
-# Needs: JDK 21, Node.js 20.19+, and (for the 35 PostgreSQL tests) Docker. Maven is downloaded by ./mvnw.
+# Needs: JDK 21, Node.js 22.12+, and (for the 35 PostgreSQL tests) Docker. Maven is downloaded by ./mvnw.
 
 .DEFAULT_GOAL := help
 .PHONY: help install test test-backend test-frontend lint lint-backend lint-frontend format build build-backend build-frontend check run

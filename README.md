@@ -24,7 +24,7 @@ Everything here works on a machine that has never seen the project. You do **not
 |---|---|---|
 | Git | any | cloning |
 | JDK | 21 | backend (`java -version`) |
-| Node.js | 20.19+ or 22 LTS | frontend (`node -v`) |
+| Node.js | 22.12+ (22 or 24 LTS) | frontend (`node -v`) |
 | Docker | running (Docker Desktop, Colima or the Linux daemon); optional for a quick run | the 35 PostgreSQL adapter and whole-app tests |
 
 Maven is not a prerequisite: the repo ships `backend/mvnw`, which downloads the pinned Maven (3.9.11) on first use and needs only `curl` or `wget`.
@@ -74,7 +74,7 @@ A passing run ends with `BUILD SUCCESS` for the backend and `Tests … passed` f
 
 **No Docker?** `./mvnw test` still succeeds: the roughly 200 other backend tests run, and the 35 that need Docker (the PostgreSQL adapters and the whole-application startup test) are **skipped** with a banner saying they did not run, so a skip is never mistaken for a pass. Set `REQUIRE_DOCKER_TESTS=true` to make a missing Docker fail the build instead; CI does exactly that, so the pull-request checks always include them.
 
-**CI.** [GitHub Actions](.github/workflows/ci.yml) runs these same commands on every push and pull request: formatting and lint checks first, then backend tests and package, frontend tests and build on Node 20 and 22, and a build of the production Docker image. Nothing is deployed.
+**CI.** [GitHub Actions](.github/workflows/ci.yml) runs these same commands on every push and pull request: formatting and lint checks first, then backend tests and package, frontend tests and build on Node 22 and 24, and a build of the production Docker image. Nothing is deployed.
 
 **Reproducible installs.** `frontend/package-lock.json` is committed, so use `npm ci` (not `npm install`). Backend dependency versions are pinned by the Spring Boot parent and the explicit versions in `backend/pom.xml`.
 
@@ -93,7 +93,7 @@ Switch with `SPRING_PROFILES_ACTIVE=local` or `SPRING_PROFILES_ACTIVE=gcp` in `.
 
 ### Run the local stack
 
-Prerequisites: Java 21, Node 20.19+/22, Docker Desktop, Ollama with the model pulled (`ollama pull llama3.2`).
+Prerequisites: Java 21, Node 22.12+, Docker Desktop, Ollama with the model pulled (`ollama pull llama3.2`).
 
 ```bash
 cp .env.example .env        # set STAFF_PIN and STAFF_TOKEN_SECRET; keep SPRING_PROFILES_ACTIVE=local
@@ -220,7 +220,7 @@ Everything below applies when `SPRING_PROFILES_ACTIVE=gcp`.
 | Tool | Version |
 |---|---|
 | Java (JDK) | 21 |
-| Node.js | 20.19+ or 22 LTS (Vite 8 requirement) |
+| Node.js | 22.12+ (Vite 8 requirement) |
 | gcloud CLI | recent |
 
 A Google Cloud project with **billing enabled** (credits are fine).
@@ -341,7 +341,7 @@ Dockerfile  multi-stage: UI build → jar build → slim JRE
 | Brew replies "taking a quick breather" | Gemini call failed. Check the log line `Gemini call failed…`: usually the model isn't available in `GEMINI_LOCATION`, the Vertex AI API isn't enabled, or ADC has no quota project |
 | `PERMISSION_DENIED` on Cloud Run | Re-run `deploy.sh` (it grants the two roles) and wait a minute for IAM to propagate |
 | Cloud Build permission error on first deploy | Grant the Cloud Build/Compute default service account `roles/cloudbuild.builds.builder` in IAM, then retry |
-| `npm ci` fails | Use Node 20.19+ or 22 |
+| `npm ci` fails | Use Node 22.12 or newer (`node -v`) |
 
 ## Known limits (deliberate, to keep scope tight)
 
