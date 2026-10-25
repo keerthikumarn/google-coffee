@@ -50,7 +50,7 @@ cd backend && ./mvnw -B test
 cd frontend && npm test
 ```
 
-Both suites must pass before you push. GitHub Actions runs them (plus the production image build) on every push and pull request. The backend tests need Docker for the PostgreSQL adapter tests; see the README for details.
+Both suites must pass before you push. GitHub Actions runs them (plus the production image build) on every push and pull request. The 35 PostgreSQL adapter and whole-application tests need Docker: without it they are skipped with a warning (not passed), and CI sets `REQUIRE_DOCKER_TESTS=true` so they always run there. Run them locally with Docker up before you push changes that touch the database; see the README for details.
 
 ## Style checks
 

@@ -25,7 +25,7 @@ Everything here works on a machine that has never seen the project. You do **not
 | Git | any | cloning |
 | JDK | 21 | backend (`java -version`) |
 | Node.js | 20.19+ or 22 LTS | frontend (`node -v`) |
-| Docker | running (Docker Desktop, Colima or the Linux daemon) | the PostgreSQL adapter tests |
+| Docker | running (Docker Desktop, Colima or the Linux daemon); optional for a quick run | the 35 PostgreSQL adapter and whole-app tests |
 
 Maven is not a prerequisite: the repo ships `backend/mvnw`, which downloads the pinned Maven (3.9.11) on first use and needs only `curl` or `wget`.
 
@@ -58,7 +58,7 @@ A passing run ends with `BUILD SUCCESS` for the backend and `Tests … passed` f
 
 **What the tests cover.** Backend: services run against in-memory fakes of the ports (orders, menu, sessions, settings, wait-time maths, dietary rules, staff auth) and the PostgreSQL adapters run against a real PostgreSQL with the production migrations (including concurrent status changes). The whole application also starts against a real PostgreSQL in one test, which checks the API, the seeded menu and the locked-down metrics endpoint. Frontend: the API client, the guest welcome form, menu, cart and order tracker (including its live-update fallbacks and feedback), and the staff login and dashboard.
 
-**No Docker?** The PostgreSQL tests then **fail** with a message saying so; they are never skipped, so a green build always means they ran. To run only the Docker-free tests: `./mvnw test -Dtest='!Pg*Test'`.
+**No Docker?** `./mvnw test` still succeeds: the roughly 200 other backend tests run, and the 35 that need Docker (the PostgreSQL adapters and the whole-application startup test) are **skipped** with a banner saying they did not run, so a skip is never mistaken for a pass. Set `REQUIRE_DOCKER_TESTS=true` to make a missing Docker fail the build instead; CI does exactly that, so the pull-request checks always include them.
 
 **CI.** [GitHub Actions](.github/workflows/ci.yml) runs these same commands on every push and pull request: formatting and lint checks first, then backend tests and package, frontend tests and build on Node 20 and 22, and a build of the production Docker image. Nothing is deployed.
 
@@ -114,7 +114,7 @@ It prints a random `https://….trycloudflare.com` URL. Quick tunnels buffer Ser
 | Log: "Ollama not reachable" | Open the Ollama app or run `ollama serve` |
 | Log: "model 'llama3.2' is not pulled" | `ollama pull llama3.2`, or set `OLLAMA_MODEL` to a model from `ollama list` |
 | Brew replies "taking a quick breather" | The model timed out or returned invalid JSON; check `Ollama call failed…` in the log, raise `OLLAMA_TIMEOUT_SECONDS` |
-| Tests fail with "Docker is required for the PostgreSQL adapter tests" | Start Docker, or run the Docker-free subset: `./mvnw test -Dtest='!Pg*Test'` |
+| Test output shows a "DOCKER NOT FOUND" banner and 35 skipped tests | Start Docker and re-run to include them. With `REQUIRE_DOCKER_TESTS=true` the same situation fails the build. |
 | Port 5432 already in use | Set `POSTGRES_PORT=5433` and `DATABASE_URL=jdbc:postgresql://localhost:5433/googlecoffee` in `.env` |
 | Reset all local data | `docker compose down -v` |
 
