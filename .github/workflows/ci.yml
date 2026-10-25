@@ -35,9 +35,12 @@ jobs:
       - name: Check formatting
         run: ./mvnw -B spotless:check
 
-      # The PostgreSQL adapter tests start a real database with Testcontainers; the Ubuntu
-      # runner provides Docker. Without Docker these tests fail, they are never skipped.
+      # The PostgreSQL adapter tests start a real database with Testcontainers; the Ubuntu runner provides
+      # Docker. On a machine without Docker those tests are skipped, but here they are required: if Docker
+      # were ever missing, REQUIRE_DOCKER_TESTS makes that fail the build instead of passing quietly.
       - name: Test
+        env:
+          REQUIRE_DOCKER_TESTS: 'true'
         run: ./mvnw -B test
 
       - name: Package
