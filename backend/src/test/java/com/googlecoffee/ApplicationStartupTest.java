@@ -1,5 +1,6 @@
 package com.googlecoffee;
 
+import com.googlecoffee.support.RequiresDocker;
 import com.googlecoffee.support.SharedPostgres;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The whole application (local profile, real PostgreSQL) starts, and its operational endpoints are locked down.
  * Spring Boot turns metric export off in tests by default, hence {@code @AutoConfigureObservability}.
  */
+@RequiresDocker
 @AutoConfigureObservability
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
