@@ -1,0 +1,22 @@
+{
+  "name": "google-coffee",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cafe companion: Spring Boot API (backend/) and React app (frontend/). These scripts are thin entry points that run both from the repository root.",
+  "scripts": {
+    "postinstall": "npm --prefix frontend ci --no-audit --no-fund",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && ./mvnw -B test",
+    "test:frontend": "npm --prefix frontend test",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && ./mvnw -B spotless:check",
+    "lint:frontend": "npm --prefix frontend run lint && npm --prefix frontend run format:check",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && ./mvnw -B -DskipTests package",
+    "build:frontend": "npm --prefix frontend run build",
+    "check": "npm run lint && npm test && npm run build"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
