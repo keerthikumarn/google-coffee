@@ -348,6 +348,7 @@ Dockerfile  multi-stage: UI build → jar build → slim JRE
 - One café, English only, pay at counter.
 - Staff auth is a single shared PIN. For a real rollout, move secrets to Secret Manager and use per-staff accounts.
 - Wait times are a transparent heuristic; with a few weeks of order data they could be replaced by a learned model.
+- Pickup codes are unique among the open orders the running app knows about, which is enough for a single instance. Two orders placed within the same few milliseconds can still draw the same code, and several app instances would not see each other's orders. The remedy, if either ever matters, is a database rule: a unique index on the code of open orders, with the order service retrying on a conflict.
 - The menu shown is sample data for a third-wave style café, not any real café's menu.
 
 ## Optional: Google Cloud deploy pipeline (Cloud Build → Artifact Registry → Cloud Run)
