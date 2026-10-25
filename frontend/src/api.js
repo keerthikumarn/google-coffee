@@ -42,6 +42,10 @@ export const api = {
   estimate: (items) => request('/api/orders/estimate', { method: 'POST', body: { items } }),
   placeOrder: (sessionId, items) => request('/api/orders', { method: 'POST', body: { sessionId, items } }),
   order: (id, sessionId) => request(`/api/orders/${id}?sessionId=${encodeURIComponent(sessionId)}`),
+  cancelOrder: (id, sessionId) =>
+    request(`/api/orders/${encodeURIComponent(id)}/cancel?sessionId=${encodeURIComponent(sessionId)}`, {
+      method: 'POST',
+    }),
   feedback: (sessionId, orderId, rating, comment) =>
     request('/api/feedback', { method: 'POST', body: { sessionId, orderId, rating, comment } }),
 

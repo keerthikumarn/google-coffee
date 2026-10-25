@@ -113,6 +113,47 @@ describe('endpoint shapes', () => {
   })
 })
 
+describe('cancelOrder', () => {
+  beforeEach(() => vi.unstubAllGlobals())
+
+  it('posts to the cancel endpoint with the encoded ids and no body', async () => {
+    const fetch = mockFetch(respond(200, {}))
+
+    await api.cancelOrder('o 1', 'a b&c')
+
+    const [path, init] = fetch.mock.calls[0]
+    expect(path).toBe('/api/orders/o%201/cancel?sessionId=a%20b%26c')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBeUndefined()
+  })
+
+  it('returns the cancelled order view', async () => {
+    mockFetch(respond(200, { order: { id: 'o1', status: 'CANCELLED' }, etaMinutes: 0, queuePosition: 0 }))
+
+    const view = await api.cancelOrder('o1', 's1')
+
+    expect(view.order.status).toBe('CANCELLED')
+  })
+
+  it('reports why the server refused, with its status', async () => {
+    mockFetch(respond(409, { message: 'This order is already preparing, so it can’t be cancelled here.' }))
+
+    const error = await api.cancelOrder('o1', 's1').catch((e) => e)
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error.status).toBe(409)
+    expect(error.message).toMatch(/already preparing/)
+  })
+
+  it('reports an order that is not the guest’s as not found', async () => {
+    mockFetch(respond(404, { message: 'Order not found' }))
+
+    const error = await api.cancelOrder('o1', 'someone-else').catch((e) => e)
+
+    expect(error.status).toBe(404)
+  })
+})
+
 describe('store (localStorage wrapper)', () => {
   beforeEach(() => localStorage.clear())
 
