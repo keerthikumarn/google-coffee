@@ -33,7 +33,17 @@ Maven is not a prerequisite: the repo ships `backend/mvnw`, which downloads the 
 git clone -b google-coffee-local https://github.com/keerthikumarn/google-coffee.git
 cd google-coffee
 
-# Backend: run the tests, then build the jar (backend/target/google-coffee.jar)
+npm ci          # installs the frontend dependencies exactly as package-lock.json says
+npm test        # backend tests, then frontend tests
+npm run build   # backend jar (backend/target/google-coffee.jar) and the production UI bundle
+```
+
+Those root scripts are thin entry points; `npm run lint` checks style on both stacks and `npm run check` runs lint, tests and build together (what CI does). If you prefer `make`, the same targets exist: `make test`, `make lint`, `make build`, `make check` (`make help` lists them). The root `npm`/`make` commands work on macOS, Linux and WSL.
+
+Each project also works on its own, which is what the scripts call:
+
+```bash
+# Backend: run the tests, then build the jar
 cd backend
 ./mvnw test
 ./mvnw -DskipTests package
@@ -48,6 +58,10 @@ npm run build
 **Style checks.** CI runs these first, and they fail the build on any violation:
 
 ```bash
+npm run lint        # or: make lint   (both stacks)
+make format         # fixes what it can on both stacks
+
+# or per project
 cd backend && ./mvnw spotless:check                       # fix with: ./mvnw spotless:apply
 cd frontend && npm run lint && npm run format:check       # fix with: npm run lint:fix && npm run format
 ```

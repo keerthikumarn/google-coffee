@@ -42,6 +42,15 @@ refactor(service): extract ETA queue-depth lookup
 
 ## Running the tests
 
+From the repository root:
+
+```bash
+npm test          # backend, then frontend (or: make test)
+npm run check     # lint, tests and build together: what CI runs (or: make check)
+```
+
+Or one project at a time:
+
 ```bash
 # backend
 cd backend && ./mvnw -B test
